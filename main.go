@@ -2,6 +2,7 @@ package main
 
 import (
 	"ansonallard/users-service/api"
+	"ansonallard/users-service/utils"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,35 +16,41 @@ import (
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 )
 
-//go:generate go run github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen -config=types.cfg.yaml openapi.yaml
-
-// Create types.cfg.yaml with:
-/*
-generate:
-  models: true
-  embedded-spec: true
-output: types.gen.go
-package: api
-*/
+//go:generate go run github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen -config=types.cfg.yaml src/public/openapi.yaml
 
 // ServerInterface defines the interface that the generated code expects
-type ServerInterface interface {
-	GetUser(w http.ResponseWriter, r *http.Request, userID string)
-}
+// type ServerInterface interface {
+// 	GetUser(w http.ResponseWriter, r *http.Request, userID string)
+// }
 
 // Server implements ServerInterface
 type Server struct{}
 
-// GetUser implements ServerInterface
-func (s *Server) GetUser(w http.ResponseWriter, r *http.Request, userID string) {
-	user := api.User{
-		Id:    userID,
-		Name:  "John Doe",
-		Email: "john@example.com",
+func (s *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
+	requestData := api.CreateUserRequestDto{}
+	err := json.NewDecoder(r.Body).Decode(&requestData)
+	if err != nil {
+		log.Fatal(err)
 	}
-	WriteResponse(w, map[string]string{
-		"Content-Type": "application/json",
-	}, http.StatusCreated, user)
+	response := api.CreateUserResponseDto{
+		Id: "123",
+	}
+
+	message := "error"
+	switch {
+	case requestData.Username == "bad":
+		WriteResponse(w, nil, http.StatusBadRequest, api.BadRequest{Message: &message})
+	case requestData.Username == "unauthorized":
+		WriteResponse(w, nil, http.StatusUnauthorized, api.UnAuthorized{Message: &message})
+	case requestData.Username == "forbidden":
+		WriteResponse(w, nil, http.StatusForbidden, api.Forbidden{Message: &message})
+	case requestData.Username == "conflict":
+		WriteResponse(w, nil, http.StatusConflict, api.Conflict{Message: &message})
+	case requestData.Username == "error":
+		WriteResponse(w, nil, http.StatusInternalServerError, api.InternalServerError{Message: &message})
+	default:
+		WriteResponse(w, nil, http.StatusCreated, response)
+	}
 }
 
 func WriteResponse(w http.ResponseWriter, headers map[string]string, statusCode int, body interface{}) {
@@ -94,6 +101,7 @@ func ValidationMiddleware(router routers.Router) func(http.Handler) http.Handler
 				RequestValidationInput: requestValidationInput,
 				Status:                 response.StatusCode,
 				Header:                 response.Header,
+				Body:                   response.Body,
 				Options: &openapi3filter.Options{
 					MultiError: true,
 				},
@@ -119,7 +127,7 @@ func main() {
 
 	// Load and parse OpenAPI spec
 	loader := openapi3.NewLoader()
-	swagger, err := loader.LoadFromFile("openapi.yaml")
+	swagger, err := loader.LoadFromFile("src/public/openapi.yaml")
 	if err != nil {
 		log.Fatalf("Error loading swagger spec: %v", err)
 	}
@@ -145,10 +153,22 @@ func main() {
 	// Create handler with routes
 	mux := http.NewServeMux()
 
+	notImplemented := api.InternalServerError{Message: utils.StrPtr("message")}
+
 	// Register routes with validation
-	mux.Handle("/users/", validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID := r.URL.Path[len("/users/"):]
-		server.GetUser(w, r, userID)
+	mux.Handle("/v1/users", validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// userID := r.URL.Path[len("/users/"):]
+		// server.GetUser(w, r, userID)
+		server.CreateUser(w, r)
+	})))
+	mux.Handle("/v1/users/login", validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		WriteResponse(w, nil, http.StatusNotImplemented, notImplemented)
+	})))
+	mux.Handle("/v1/users/resetPassword", validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		WriteResponse(w, nil, http.StatusNotImplemented, notImplemented)
+	})))
+	mux.Handle("/v1/oauth/token", validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		WriteResponse(w, nil, http.StatusNotImplemented, notImplemented)
 	})))
 
 	log.Println("Server starting on :5000")

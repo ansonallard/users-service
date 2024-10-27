@@ -15,21 +15,102 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
-// User defines model for User.
-type User struct {
-	Email string `json:"email"`
-	Id    string `json:"id"`
-	Name  string `json:"name"`
+// ClientCredentialsResponse defines model for ClientCredentialsResponse.
+type ClientCredentialsResponse struct {
+	AccessToken  string  `json:"access_token"`
+	ExpiresIn    float32 `json:"expires_in"`
+	RefreshToken *string `json:"refresh_token,omitempty"`
+	TokenType    string  `json:"token_type"`
 }
+
+// CreateUserRequestDto defines model for CreateUserRequestDto.
+type CreateUserRequestDto struct {
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
+
+// LoginResponse defines model for LoginResponse.
+type LoginResponse struct {
+	Token  string `json:"token"`
+	UserId string `json:"userId"`
+}
+
+// ResetUserPasswordDto defines model for ResetUserPasswordDto.
+type ResetUserPasswordDto struct {
+	NewPassword string `json:"newPassword"`
+	OldPassword string `json:"oldPassword"`
+	Username    string `json:"username"`
+}
+
+// BadRequest defines model for BadRequest.
+type BadRequest struct {
+	Message *string `json:"message,omitempty"`
+}
+
+// Conflict defines model for Conflict.
+type Conflict struct {
+	Message *string `json:"message,omitempty"`
+}
+
+// CreateUserResponseDto User created
+type CreateUserResponseDto struct {
+	Id string `json:"id"`
+}
+
+// Forbidden defines model for Forbidden.
+type Forbidden struct {
+	Message *string `json:"message,omitempty"`
+}
+
+// InternalServerError defines model for InternalServerError.
+type InternalServerError struct {
+	Message *string `json:"message,omitempty"`
+}
+
+// UnAuthorized defines model for UnAuthorized.
+type UnAuthorized struct {
+	Message *string `json:"message,omitempty"`
+}
+
+// OauthClientCredentialsFormdataBody defines parameters for OauthClientCredentials.
+type OauthClientCredentialsFormdataBody struct {
+	GrantType string `form:"grant_type" json:"grant_type"`
+}
+
+// OauthClientCredentialsFormdataRequestBody defines body for OauthClientCredentials for application/x-www-form-urlencoded ContentType.
+type OauthClientCredentialsFormdataRequestBody OauthClientCredentialsFormdataBody
+
+// CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
+type CreateUserJSONRequestBody = CreateUserRequestDto
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = CreateUserRequestDto
+
+// ResetPasswordJSONRequestBody defines body for ResetPassword for application/json ContentType.
+type ResetPasswordJSONRequestBody = ResetUserPasswordDto
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
