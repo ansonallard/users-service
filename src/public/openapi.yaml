@@ -1,0 +1,234 @@
+openapi: 3.0.0
+info:
+  title: users-service
+  version: "0.1.0"
+servers:
+  - url: http://localhost:5000/v1
+paths:
+  /users:
+    post:
+      tags:
+        - Access Control
+      description: Create a user object
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequestDto"
+      responses:
+        201:
+          $ref: "#/components/responses/CreateUserResponseDto"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/UnAuthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        409:
+          $ref: "#/components/responses/Conflict"
+        5XX:
+          $ref: "#/components/responses/InternalServerError"
+  /users/login:
+    post:
+      tags:
+        - Access Control
+      description: Login in entity - returns token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequestDto"
+      responses:
+        200:
+          description: Login response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/UnAuthorized"
+        5XX:
+          $ref: "#/components/responses/InternalServerError"
+  /users/resetPassword:
+    post:
+      tags:
+        - Access Control
+      description: Reset password for user - returns token
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetUserPasswordDto"
+      responses:
+        200:
+          description: Login response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/UnAuthorized"
+  /oauth/token:
+    post:
+      operationId: oauthClientCredentials
+      tags:
+        - Access Control
+      description: Generate access token with client_credentials grant type
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                grant_type:
+                  type: string
+              required:
+                - grant_type
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientCredentialsResponse"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/UnAuthorized"
+components:
+  schemas:
+    ResetUserPasswordDto:
+      type: object
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          pattern: ^[a-zA-Z0-9]+$
+        oldPassword:
+          type: string
+          minLength: 8
+        newPassword:
+          type: string
+          minLength: 8
+      required:
+        - username
+        - oldPassword
+        - newPassword
+    CreateUserRequestDto:
+      type: object
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          pattern: ^[a-zA-Z0-9]+$
+        password:
+          type: string
+          minLength: 8
+      required:
+        - username
+        - password
+    ClientCredentialsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: number
+          example: 300
+        refresh_token:
+          type: string
+          example: asdgniadin23jfaosdfnsoafnalskdnfo2n3afifnk23jnawe
+      required:
+        - access_token
+        - token_type
+        - expires_in
+    LoginResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        userId:
+          type: string
+        token:
+          type: string
+      required:
+        - userId
+        - token
+  responses:
+    CreateUserResponseDto:
+      description: ""
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            description: User created
+            properties:
+              id:
+                type: string
+            required:
+              - id
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+    UnAuthorized:
+      description: Not Authorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+  securitySchemes:
+    BearerToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
