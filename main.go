@@ -181,7 +181,7 @@ func main() {
 	privateKeyFileBytes, err := os.ReadFile("private.pem")
 	var privateKey *rsa.PrivateKey
 	if err != nil {
-		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
 		if err != nil {
 			fmt.Printf("Cannot generate RSA Key\n")
 			os.Exit(1)
@@ -208,7 +208,7 @@ func main() {
 	publicKeyFileBytes, err := os.ReadFile("public.pem")
 	// var publicKey *rsa.PublicKey
 	if err != nil {
-		if err = encodePublicKey(&privateKey.PublicKey, "public.pem"); err != nil {
+		if publicKeyFileBytes, err = encodePublicKey(&privateKey.PublicKey, "public.pem"); err != nil {
 			os.Exit(1)
 		}
 	} else {
@@ -249,7 +249,7 @@ type JWKKey struct {
 	Use string   `json:"use"`
 }
 
-func encodePublicKey(key *rsa.PublicKey, filename string) error {
+func encodePublicKey(key *rsa.PublicKey, filename string) ([]byte, error) {
 	publicKeyBytes := x509.MarshalPKCS1PublicKey(key)
 	publicKeyBlock := pem.Block{
 		Type:  "RSA PUBLIC KEY",
@@ -258,14 +258,15 @@ func encodePublicKey(key *rsa.PublicKey, filename string) error {
 	publicPem, err := os.Create(filename)
 	if err != nil {
 		fmt.Printf("error when creating %s %s\n", filename, err)
-		return err
+		return nil, err
 	}
 	err = pem.Encode(publicPem, &publicKeyBlock)
 	if err != nil {
 		fmt.Printf("error when encoding %s %s\n", filename, err)
-		return err
+		return nil, err
 	}
-	return nil
+	result, _ := os.ReadFile(filename)
+	return result, nil
 }
 
 func encodePrivateKey(key *rsa.PrivateKey, filename string) error {
