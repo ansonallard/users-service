@@ -4,16 +4,23 @@ import (
 	"ansonallard/users-service/api"
 	"ansonallard/users-service/utils"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
+	"github.com/golang-jwt/jwt"
 )
 
 //go:generate go run github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen -config=types.cfg.yaml src/public/openapi.yaml
@@ -171,6 +178,111 @@ func main() {
 		WriteResponse(w, nil, http.StatusNotImplemented, notImplemented)
 	})))
 
+	privateKeyFileBytes, err := os.ReadFile("private.pem")
+	var privateKey *rsa.PrivateKey
+	if err != nil {
+		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			fmt.Printf("Cannot generate RSA Key\n")
+			os.Exit(1)
+		}
+		if err = encodePrivateKey(privateKey, "private.pem"); err != nil {
+			os.Exit(1)
+		}
+	} else {
+		privateKeyPem, _ := pem.Decode(privateKeyFileBytes)
+		privateKey, _ = x509.ParsePKCS1PrivateKey(privateKeyPem.Bytes)
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.StandardClaims{Id: "1234",
+		Issuer: "authorization.ansonallard.com", IssuedAt: time.Now().Unix(),
+		ExpiresAt: time.Now().Add(time.Minute * 5).Unix()})
+	signedToken, err := token.SignedString(privateKey)
+
+	if err != nil {
+		fmt.Printf("%+v", err)
+		os.Exit(1)
+	}
+	fmt.Printf("jwt: %s\n", signedToken)
+
+	publicKeyFileBytes, err := os.ReadFile("public.pem")
+	// var publicKey *rsa.PublicKey
+	if err != nil {
+		if err = encodePublicKey(&privateKey.PublicKey, "public.pem"); err != nil {
+			os.Exit(1)
+		}
+	} else {
+		publicKeyPem, _ := pem.Decode(publicKeyFileBytes)
+		_, _ = x509.ParsePKCS1PublicKey(publicKeyPem.Bytes)
+	}
+
+	mux.HandleFunc("/well-known/jwks.json", func(w http.ResponseWriter, r *http.Request) {
+		jwk := JWKJson{
+			Keys: &[]JWKKey{{Kty: "RSA", Use: "sig", Alg: "RSA256", X5c: []string{string(publicKeyFileBytes)}}},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		json.NewEncoder(w).Encode(jwk)
+	})
+
 	log.Println("Server starting on :5000")
 	log.Fatal(http.ListenAndServe(":5000", mux))
+
+	// myToken, err := jwt.ParseWithClaims(signedToken, jwt.Claims{}, func(token *jwt.Token) (interface{}, error) {
+	// 	// Validate signing method
+	// 	if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+	// 		return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+	// 	}
+	// 	return publicKey, nil
+	// })
+
+}
+
+type JWKJson struct {
+	Keys *[]JWKKey `json:"keys"`
+}
+
+type JWKKey struct {
+	X5c []string `json:"x5c"`
+	Kty string   `json:"kty"`
+	Alg string   `json:"alg"`
+	Use string   `json:"use"`
+}
+
+func encodePublicKey(key *rsa.PublicKey, filename string) error {
+	publicKeyBytes := x509.MarshalPKCS1PublicKey(key)
+	publicKeyBlock := pem.Block{
+		Type:  "RSA PUBLIC KEY",
+		Bytes: publicKeyBytes,
+	}
+	publicPem, err := os.Create(filename)
+	if err != nil {
+		fmt.Printf("error when creating %s %s\n", filename, err)
+		return err
+	}
+	err = pem.Encode(publicPem, &publicKeyBlock)
+	if err != nil {
+		fmt.Printf("error when encoding %s %s\n", filename, err)
+		return err
+	}
+	return nil
+}
+
+func encodePrivateKey(key *rsa.PrivateKey, filename string) error {
+	privateKeyBytes := x509.MarshalPKCS1PrivateKey(key)
+	privateKeyBlock := pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privateKeyBytes,
+	}
+	privatePem, err := os.Create(filename)
+	if err != nil {
+		fmt.Printf("error when creating %s %s\n", filename, err)
+		return err
+	}
+	err = pem.Encode(privatePem, &privateKeyBlock)
+	if err != nil {
+		fmt.Printf("error when encoding %s %s\n", filename, err)
+		return err
+	}
+	return nil
 }
