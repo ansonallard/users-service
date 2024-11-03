@@ -2,6 +2,7 @@ package main
 
 import (
 	"ansonallard/users-service/api"
+	"ansonallard/users-service/src/operations"
 	"ansonallard/users-service/utils"
 	"context"
 	"crypto/rand"
@@ -14,13 +15,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
-	"github.com/golang-jwt/jwt"
 )
 
 //go:generate go run github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen -config=types.cfg.yaml src/public/openapi.yaml
@@ -42,6 +41,10 @@ func (s *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 	response := api.CreateUserResponseDto{
 		Id: "123",
 	}
+
+	// if err = os.Mkdir("./users"); err != nil {
+
+	// }
 
 	message := "error"
 	switch {
@@ -134,19 +137,19 @@ func main() {
 
 	// Load and parse OpenAPI spec
 	loader := openapi3.NewLoader()
-	swagger, err := loader.LoadFromFile("src/public/openapi.yaml")
+	openAPISpec, err := loader.LoadFromFile("src/public/openapi.yaml")
 	if err != nil {
 		log.Fatalf("Error loading swagger spec: %v", err)
 	}
 
 	// Validate the OpenAPI spec itself
-	err = swagger.Validate(ctx)
+	err = openAPISpec.Validate(ctx)
 	if err != nil {
 		log.Fatalf("Error validating swagger spec: %v", err)
 	}
 
 	// Create router from OpenAPI spec
-	router, err := gorillamux.NewRouter(swagger)
+	router, err := gorillamux.NewRouter(openAPISpec)
 	if err != nil {
 		log.Fatalf("Error creating router: %v", err)
 	}
@@ -163,19 +166,29 @@ func main() {
 	notImplemented := api.InternalServerError{Message: utils.StrPtr("message")}
 
 	// Register routes with validation
-	mux.Handle("/v1/users", validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// userID := r.URL.Path[len("/users/"):]
-		// server.GetUser(w, r, userID)
-		server.CreateUser(w, r)
-	})))
-	mux.Handle("/v1/users/login", validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		WriteResponse(w, nil, http.StatusNotImplemented, notImplemented)
-	})))
-	mux.Handle("/v1/users/resetPassword", validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		WriteResponse(w, nil, http.StatusNotImplemented, notImplemented)
-	})))
-	mux.Handle("/v1/oauth/token", validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		WriteResponse(w, nil, http.StatusNotImplemented, notImplemented)
+
+	// TODO: add error handling
+	url := openAPISpec.Servers[0].URL
+
+	mux.Handle(utils.ReturnPathWithTrailingSlash(url), validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		route, _, err := router.FindRoute(r)
+		if err != nil {
+			fmt.Printf("err %+v", err)
+			return
+		}
+
+		switch route.Operation.OperationID {
+		case operations.CREATE_USER:
+			server.CreateUser(w, r)
+		case operations.LOGIN:
+			fallthrough
+		case operations.RESET_PASSWORD:
+			fallthrough
+		case operations.OAUTH_CLIENT_CREDS:
+			fallthrough
+		default:
+			WriteResponse(w, nil, http.StatusNotImplemented, notImplemented)
+		}
 	})))
 
 	privateKeyFileBytes, err := os.ReadFile("private.pem")
@@ -194,16 +207,16 @@ func main() {
 		privateKey, _ = x509.ParsePKCS1PrivateKey(privateKeyPem.Bytes)
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.StandardClaims{Id: "1234",
-		Issuer: "authorization.ansonallard.com", IssuedAt: time.Now().Unix(),
-		ExpiresAt: time.Now().Add(time.Minute * 5).Unix()})
-	signedToken, err := token.SignedString(privateKey)
+	// token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.StandardClaims{Id: "1234",
+	// 	Issuer: "authorization.ansonallard.com", IssuedAt: time.Now().Unix(),
+	// 	ExpiresAt: time.Now().Add(time.Minute * 5).Unix()})
+	// signedToken, err := token.SignedString(privateKey)
 
-	if err != nil {
-		fmt.Printf("%+v", err)
-		os.Exit(1)
-	}
-	fmt.Printf("jwt: %s\n", signedToken)
+	// if err != nil {
+	// 	fmt.Printf("%+v", err)
+	// 	os.Exit(1)
+	// }
+	// fmt.Printf("jwt: %s\n", signedToken)
 
 	publicKeyFileBytes, err := os.ReadFile("public.pem")
 	// var publicKey *rsa.PublicKey
