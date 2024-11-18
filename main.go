@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	b64 "encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -15,6 +16,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -22,7 +25,7 @@ import (
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 )
 
-//go:generate go run github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen -config=types.cfg.yaml src/public/openapi.yaml
+//go:generate go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen -config=types.cfg.yaml src/public/openapi.yaml
 
 // ServerInterface defines the interface that the generated code expects
 // type ServerInterface interface {
@@ -61,6 +64,35 @@ func (s *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 	default:
 		WriteResponse(w, nil, http.StatusCreated, response)
 	}
+}
+
+func (s *Server) Oauth2ClientCredentials(w http.ResponseWriter, r *http.Request) {
+	basicHeaderList := r.Header["Authorization"]
+	if len(basicHeaderList) != 1 {
+		WriteResponse(w, nil, http.StatusBadRequest, api.OAuthErrorBadRequest{Error: operations.Invalid_request})
+		return
+	}
+	basicHeader := basicHeaderList[0]
+	basicAuthorizationRegex := regexp.MustCompile("^Basic (?P<EncodedHeader>.*)$")
+
+	results := basicAuthorizationRegex.FindStringSubmatch(basicHeader)
+	if len(results) != 2 {
+		WriteResponse(w, nil, http.StatusBadRequest, api.OAuthErrorBadRequest{Error: operations.Invalid_request})
+		return
+	}
+	decodedHeaderBytes, _ := b64.StdEncoding.DecodeString(results[1])
+	headerStr := strings.Split(string(decodedHeaderBytes), ":")
+	if len(headerStr) != 2 {
+		WriteResponse(w, nil, http.StatusBadRequest, api.OAuthErrorBadRequest{Error: operations.Invalid_request})
+		return
+	}
+	client_id, client_secret := headerStr[0], headerStr[1]
+	if client_id != "abc123" || client_secret != "abc123" {
+		WriteResponse(w, nil, http.StatusUnauthorized, api.OAuthErrorBadRequest{Error: operations.Unauthorized_client})
+		return
+	}
+	body := api.ClientCredentialsResponse{AccessToken: "123", ExpiresIn: 10, RefreshToken: utils.StrPtr("abc123"), TokenType: "bearer"}
+	WriteResponse(w, nil, http.StatusOK, body)
 }
 
 func WriteResponse(w http.ResponseWriter, headers map[string]string, statusCode int, body interface{}) {
@@ -168,9 +200,9 @@ func main() {
 	// Register routes with validation
 
 	// TODO: add error handling
-	url := openAPISpec.Servers[0].URL
+	// url := openAPISpec.Servers[0].URL
 
-	mux.Handle(utils.ReturnPathWithTrailingSlash(url), validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/", validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		route, _, err := router.FindRoute(r)
 		if err != nil {
 			fmt.Printf("err %+v", err)
@@ -185,7 +217,7 @@ func main() {
 		case operations.RESET_PASSWORD:
 			fallthrough
 		case operations.OAUTH_CLIENT_CREDS:
-			fallthrough
+			server.Oauth2ClientCredentials(w, r)
 		default:
 			WriteResponse(w, nil, http.StatusNotImplemented, notImplemented)
 		}
@@ -231,7 +263,8 @@ func main() {
 
 	mux.HandleFunc("/well-known/jwks.json", func(w http.ResponseWriter, r *http.Request) {
 		jwk := JWKJson{
-			Keys: &[]JWKKey{{Kty: "RSA", Use: "sig", Alg: "RSA256", X5c: []string{string(publicKeyFileBytes)}}},
+			Keys: &[]JWKKey{{Kid: "1", Kty: "RSA", Use: "sig", Alg: "RSA256",
+				X5c: []string{b64.StdEncoding.EncodeToString(publicKeyFileBytes)}}},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
@@ -260,6 +293,7 @@ type JWKKey struct {
 	Kty string   `json:"kty"`
 	Alg string   `json:"alg"`
 	Use string   `json:"use"`
+	Kid string   `json:"kid"`
 }
 
 func encodePublicKey(key *rsa.PublicKey, filename string) ([]byte, error) {

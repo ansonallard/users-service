@@ -2,8 +2,6 @@ openapi: 3.0.0
 info:
   title: users-service
   version: "0.1.0"
-servers:
-  - url: /v1
 paths:
   /users:
     post:
@@ -92,6 +90,12 @@ paths:
               properties:
                 grant_type:
                   type: string
+                scope:
+                  type: string
+                  nullable: true
+                refresh_token:
+                  type: string
+                  nullable: true
               required:
                 - grant_type
       responses:
@@ -102,9 +106,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ClientCredentialsResponse"
         400:
-          $ref: "#/components/responses/BadRequest"
+          $ref: "#/components/responses/OAuthErrorBadRequest"
         401:
-          $ref: "#/components/responses/UnAuthorized"
+          $ref: "#/components/responses/OAuthErrorBadRequest"
 components:
   schemas:
     ResetUserPasswordDto:
@@ -153,6 +157,8 @@ components:
         refresh_token:
           type: string
           example: asdgniadin23jfaosdfnsoafnalskdnfo2n3afifnk23jnawe
+        scope:
+          type: string
       required:
         - access_token
         - token_type
@@ -209,6 +215,28 @@ components:
             properties:
               message:
                 type: string
+    OAuthErrorBadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                # enum:
+                #   - invalid_request
+                #   - invalid_client
+                #   - invalid_grant
+                #   - unauthorized_client
+                #   - unsupported_grant_type
+                #   - invalid_scope
+              error_description:
+                type: string
+              error_uri:
+                type: string
+            required:
+            - error
     UnAuthorized:
       description: Not Authorized
       content:
@@ -227,6 +255,7 @@ components:
             properties:
               message:
                 type: string
+  
   securitySchemes:
     BearerToken:
       type: http
