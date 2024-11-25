@@ -4,6 +4,7 @@ import (
 	"ansonallard/users-service/src/api"
 	"ansonallard/users-service/src/operations"
 	"ansonallard/users-service/src/service"
+	"ansonallard/users-service/utils"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -28,9 +29,9 @@ func (c *OidcController) OAuth2Token(r *http.Request) (*api.OAuth2TokenResponse,
 	r.ParseForm()
 	defer r.Body.Close()
 
-	return c.oidcService.Oauth2ClientCredentials(service.Input{
-		GrantType:    r.FormValue("grant_type"),
-		Scope:        r.FormValue("scope"),
+	return c.oidcService.Oauth2Token(service.Input{
+		GrantType:    api.OAuth2TokenRequestGrantType(r.FormValue("grant_type")),
+		Scope:        utils.ToAddress(r.FormValue("scope")),
 		ClientId:     *clientId,
 		ClientSecret: *clientSecret,
 	})

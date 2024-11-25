@@ -84,12 +84,6 @@ func ValidationMiddleware(router routers.Router) func(http.Handler) http.Handler
 func main() {
 	ctx := context.Background()
 
-	// err := godotenv.Load(".env")
-
-	// if err != nil {
-	// 	log.Fatalf("Error loading .env file")
-	// }
-
 	// Load and parse OpenAPI spec
 	loader := openapi3.NewLoader()
 	openAPISpec, err := loader.LoadFromFile(OPENAPI_SPEC_FILE_PATH)
@@ -110,8 +104,6 @@ func main() {
 	}
 
 	httpMultiplexer := http.NewServeMux()
-
-	// notImplemented := api.InternalServerError{Message: utils.StrPtr("message")}
 
 	cont := controller.NewBaseController(controller.BaseControllerOpts{
 		OidcController: controller.NewOidcController(service.NewOidcService()),

@@ -2,7 +2,8 @@ package service
 
 import (
 	"ansonallard/users-service/src/api"
-	"fmt"
+	"ansonallard/users-service/src/errors"
+	"ansonallard/users-service/utils"
 )
 
 type OidcService struct{}
@@ -39,21 +40,32 @@ func NewOidcService() *OidcService {
 // }
 
 type Input struct {
-	GrantType    string
-	Scope        string
+	GrantType    api.OAuth2TokenRequestGrantType
+	Scope        *string
 	ClientId     string
 	ClientSecret string
 }
 
-func (s *OidcService) Oauth2ClientCredentials(request Input) (response *api.OAuth2TokenResponse, err error) {
+func (s *OidcService) Oauth2Token(request Input) (response *api.OAuth2TokenResponse, err error) {
 	switch request.GrantType {
-	case "client_credentials":
-		return &api.OAuth2TokenResponse{
-			AccessToken: "1234",
-			ExpiresIn:   300,
-			TokenType:   api.Bearer,
-		}, nil
+	case api.RefreshToken:
+		fallthrough
+	case api.ClientCredentials:
+		response := api.OAuth2TokenResponse{
+			AccessToken:  "1234",
+			ExpiresIn:    300,
+			TokenType:    api.Bearer,
+			RefreshToken: utils.ToAddress("abcd"),
+		}
+		if request.Scope != nil {
+			response.Scope = request.Scope
+		}
+		return &response, nil
+	case api.AuthorizationCode:
+		fallthrough
+	case api.Password:
+		fallthrough
 	default:
-		return nil, fmt.Errorf("unsupported grant type '%s'", request.GrantType)
+		return nil, &errors.OAuth2Error{OAuth2Error: api.InvalidGrant}
 	}
 }
