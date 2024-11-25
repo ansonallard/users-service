@@ -78,33 +78,22 @@ paths:
           $ref: "#/components/responses/UnAuthorized"
   /oauth/token:
     post:
-      operationId: oauthClientCredentials
+      operationId: OAuth2Token
       tags:
         - Access Control
-      description: Generate access token with client_credentials grant type
+      description: OAuth2 Token Implementation
       requestBody:
         content:
           application/x-www-form-urlencoded:
             schema:
-              type: object
-              properties:
-                grant_type:
-                  type: string
-                scope:
-                  type: string
-                  nullable: true
-                refresh_token:
-                  type: string
-                  nullable: true
-              required:
-                - grant_type
+              $ref: "#/components/schemas/OAuth2TokenRequest"
       responses:
         200:
           description: Success
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ClientCredentialsResponse"
+                $ref: "#/components/schemas/OAuth2TokenResponse"
         400:
           $ref: "#/components/responses/OAuthErrorBadRequest"
         401:
@@ -141,7 +130,7 @@ components:
       required:
         - username
         - password
-    ClientCredentialsResponse:
+    OAuth2TokenResponse:
       type: object
       additionalProperties: false
       properties:
@@ -150,7 +139,8 @@ components:
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
         token_type:
           type: string
-          example: Bearer
+          enum:
+          - bearer
         expires_in:
           type: number
           example: 300
@@ -174,6 +164,24 @@ components:
       required:
         - userId
         - token
+    OAuth2TokenRequest:
+      type: object
+      properties:
+        grant_type:
+          type: string
+          enum:
+          - authorization_code
+          - password
+          - refresh_token
+          - client_credentials
+        scope:
+          type: string
+          nullable: true
+        refresh_token:
+          type: string
+          nullable: true
+      required:
+        - grant_type
   responses:
     CreateUserResponseDto:
       description: ""

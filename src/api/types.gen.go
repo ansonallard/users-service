@@ -15,14 +15,18 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
-// ClientCredentialsResponse defines model for ClientCredentialsResponse.
-type ClientCredentialsResponse struct {
-	AccessToken  string  `json:"access_token"`
-	ExpiresIn    float32 `json:"expires_in"`
-	RefreshToken *string `json:"refresh_token,omitempty"`
-	Scope        *string `json:"scope,omitempty"`
-	TokenType    string  `json:"token_type"`
-}
+// Defines values for OAuth2TokenRequestGrantType.
+const (
+	AuthorizationCode OAuth2TokenRequestGrantType = "authorization_code"
+	ClientCredentials OAuth2TokenRequestGrantType = "client_credentials"
+	Password          OAuth2TokenRequestGrantType = "password"
+	RefreshToken      OAuth2TokenRequestGrantType = "refresh_token"
+)
+
+// Defines values for OAuth2TokenResponseTokenType.
+const (
+	Bearer OAuth2TokenResponseTokenType = "bearer"
+)
 
 // CreateUserRequestDto defines model for CreateUserRequestDto.
 type CreateUserRequestDto struct {
@@ -35,6 +39,28 @@ type LoginResponse struct {
 	Token  string `json:"token"`
 	UserId string `json:"userId"`
 }
+
+// OAuth2TokenRequest defines model for OAuth2TokenRequest.
+type OAuth2TokenRequest struct {
+	GrantType    OAuth2TokenRequestGrantType `json:"grant_type"`
+	RefreshToken *string                     `json:"refresh_token"`
+	Scope        *string                     `json:"scope"`
+}
+
+// OAuth2TokenRequestGrantType defines model for OAuth2TokenRequest.GrantType.
+type OAuth2TokenRequestGrantType string
+
+// OAuth2TokenResponse defines model for OAuth2TokenResponse.
+type OAuth2TokenResponse struct {
+	AccessToken  string                       `json:"access_token"`
+	ExpiresIn    float32                      `json:"expires_in"`
+	RefreshToken *string                      `json:"refresh_token,omitempty"`
+	Scope        *string                      `json:"scope,omitempty"`
+	TokenType    OAuth2TokenResponseTokenType `json:"token_type"`
+}
+
+// OAuth2TokenResponseTokenType defines model for OAuth2TokenResponse.TokenType.
+type OAuth2TokenResponseTokenType string
 
 // ResetUserPasswordDto defines model for ResetUserPasswordDto.
 type ResetUserPasswordDto struct {
@@ -80,15 +106,8 @@ type UnAuthorized struct {
 	Message *string `json:"message,omitempty"`
 }
 
-// OauthClientCredentialsFormdataBody defines parameters for OauthClientCredentials.
-type OauthClientCredentialsFormdataBody struct {
-	GrantType    string  `form:"grant_type" json:"grant_type"`
-	RefreshToken *string `form:"refresh_token" json:"refresh_token"`
-	Scope        *string `form:"scope" json:"scope"`
-}
-
-// OauthClientCredentialsFormdataRequestBody defines body for OauthClientCredentials for application/x-www-form-urlencoded ContentType.
-type OauthClientCredentialsFormdataRequestBody OauthClientCredentialsFormdataBody
+// OAuth2TokenFormdataRequestBody defines body for OAuth2Token for application/x-www-form-urlencoded ContentType.
+type OAuth2TokenFormdataRequestBody = OAuth2TokenRequest
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUserRequestDto
@@ -102,26 +121,26 @@ type ResetPasswordJSONRequestBody = ResetUserPasswordDto
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xX33PaOBD+Vzy6vh0/XEgyF94S0mRMSkggaXLt5Bhhr0FgJN9KjiEd/vcbyYZgMAUy",
-	"7XEP9+YfK+nb3W+/XX0nrhiHggNXktS+EwQZCi7BvJxTrw1/RyCVfnMFV8DNIw3DgLlUMcHLQym4/ibd",
-	"AYypfgpRhICKJZuMQUraB/2opiGQGpEKGe+T2aww/yJ6Q3AVmelPHkgXWaj3JjUNwcIUw6xA6oL7AXMP",
-	"h6cNUkToguXOkWhUCFTBgwRsp+G7UGIviNTzmP5Fg9slsD4NJKwi0MdYrjnRI4UV55iX75cOIUPwSO2b",
-	"tnnewVPt2KXAHvM84AeL9xuCWYE4XAFyGnQAXwA/IQo8GLA5FisBYyVoZgXSOovUwLz9lPKBuZcrGAvJ",
-	"n24G1UarCNl2YiRHPe9flQ9c+yyQvYJ3sITcCGUtwdAGyUFm73rAgKs6ggdcMRrIeaVurb4sRuq6IGVX",
-	"iVFSFDCh4zDQyGDaGPSuXNZiDefh1fl4wxzp8PaxW3dOnFH49KXeOC3BtPHqPTqsxZxJc9i0b+7/rLYu",
-	"RrHDYtYbX6qvHWP8Qq+O+u2r00B/p4+XtjMUk5v7T5XmsHncvHCm/l2p4wfXk7jd6DTh+vqycnd/5Mdh",
-	"Exp+9eS2NTqZNr50qXcnZXzskkIOLyYhQ5BdlnWjatsLYx6Ne2A4jeAjyEGe21R6fc6ox3ilOvSpkJ7P",
-	"paA+p4EcedwXFV6lPvP5qFIdchpDHhjpihBy6WtO7Cafl489B4qA63utUDqTrsxumQiscz4r6obpqabv",
-	"QZaQShkLNDUxZvwz8L4akNofORGIpFaTMSTLlNYWUiN/faPF17PiV7t4+vz7h63eLjYpvB2d59pn0Wf8",
-	"nQWwoECuC84O/Se1S7ORC7ANEpQO/W3qxv6x5xDf7h5+EXi3h0vW8umFDPIcMS4QCW6ETE07Wt7SSc2U",
-	"w/08Nz3zeilwTBWpkcbjPUnVUG/VW6mdgVJhoqiM+ybOiilTZRqjLErAF+ZqoC+AMlFbu/SxZJvIhcBp",
-	"yEiNVEt2yTbUUwMDqixopAblBWNCkXTCrG5fAQekCqykVi1jbsVMDSzXiHbXfVNtq4+UKyutYJ1v01o0",
-	"7UhLn7am8ySJOkh1LrzpD7rTpBjHcdEXOC5GGAB3hZd0s03tykBZSNMaSdY0k0dBQHs6rgoj+JEKbrFc",
-	"IdISjrzebayXhvqKbe/Voz8g+KRGfiu/XRTKaWMtb+6qOQ26E5kEa0+PEgx5Wy+wlnMHKbP443sX64ZC",
-	"+1JH7SxhW11whSIgz/pf2fB9M1WTlmBRS9tZaYhXafjWN3am3p5Bz2tMsywrNG/WE79D3PKvMrum7B2J",
-	"ysyOZlF1+6LMreDIPt3Br6Xr2vHT0/YFeXeN3fhTDnR73cwi030txi1dM2pqFS0EFSFPpW+NUMb+P8el",
-	"nyci2WkkRziSgOHC4t8j469mCuo5Z3nwyGeMGYes+Uhn+QITBdrGnHZm+1/DoNxR7X8GLe6gm1kwm/0T",
-	"AAD//6nJNVJ9EwAA",
+	"H4sIAAAAAAAC/+xXTXPiOBD9Ky7t3NaAA0lq41smmaRMhnwAmWRnKksJuw0CW/JKcgxJ+b9vSTZgEydA",
+	"amazh735Q+p+3f30uvWMXBZGjAKVAtnPiIOIGBWgXz5jrwt/xyCkenMZlUD1I46igLhYEkYbE8Go+ibc",
+	"MYRYPUWcRcAlyYyEIAQegXqU8wiQjYTkhI5QmpqLL2w4AVeiVH3yQLicRMo2shUEg+cYUhOdMOoHxP04",
+	"PF0QLOYuGO4CiULFAUu4FcC7efpOJdsJIvY8on7h4LoA1seBgHUEyo3hao8eMteCI151XCqFhIOH7B9q",
+	"zcMWkarAzhgfEs8D+mH5XiFITeRQCZzioAf8EfgXzhn/MGALLEYGxsjQpCa6Oo7lWL/9lOMDiyjXMJrZ",
+	"n0EJ1aurYk42EyNz9bD7qbylKmbGyRN4H1aQSyaNAgy1IHOkbRePqMadn9A3D14ZXoSFSBjXEYaEfgU6",
+	"kmNk/2G+THosFDdCyLZJxRRko79+4NrTce27VTt6+P0TMjeUY2nEXLl+WRwTfWUjQhfCs2NMkk2hmjfK",
+	"u7OFmuTrzNxUFUB9Ipp99b9wHspARhxTOci2PiOgcaiM47yemj8Dl3mlZCggPgcxHmS+TeQGBKgcuBw8",
+	"oJLgQBQArWIrb7OfEY2DAA8DQLbkMVTsEC7LkG1YuZacQlQbE/Ou+mHXBSFWgcAMh5FCh2DeHg/PXXJF",
+	"2s7tk7N3SRzh0O6Be+IcOtPo/ttJ+6gO8/aTd+eQK+LMOpOOddn/s3V1Ok0ckpBheCa/9/TiR3y+P+qe",
+	"HwXqO747s5wJm132vzQ7k85B59SZ+zf1nh9czJJuu9eBi4uz5k1/30+iDrT91uH11fRw3v42wN6NEMmB",
+	"iyoSDLOIcBADUg6jZVnLxTQOh8Ar67cKGwtvRAn2CG22Jj5mwvOpYNinOBBTj/qsSVvYJz6dNlsTihNA",
+	"b1X7xR/t8QVNh4A58AqqrdGhVK2SsVICqqjSBQFSydd1zv7d9YtCcr29hLHAu/44wSt6N0vIK9qTiQS4",
+	"MSdy3lOCn8+uuib9BUOyEp0xHmKJbNS+66O8PyhTeQGXpsdSRlmPIdTXeZZEan4pjKImgD8SVwF9BC6y",
+	"/mPV9+qWzlwEFEcE2ahVt+qWViw51qAaTClaY8nbiGVaWO5kmSwYGrvhKGKHQKXWQKTNc/2s1LkoISjL",
+	"Jgj5mXnzN/rwrJYkSc1nPKzFPACqdNUrN+ZPHHxko98aq9tBI++mjQo5T9OsloW7Q9OydhoFtvaY62TF",
+	"BNCL9flSNdjPvFcZXaJsVE5qevPeezcricAjodh8rMEYJ4xKzgL0oP41NH1er3w2pRjYUOuMnODrJV+N",
+	"MltXfLd0V85Kafm0qu73suRb5K36rrRtyd5RqNJwqje1Nm8qXTv2raMt4ircBw/u7zdvqLrMbMefRqAm",
+	"vtdZpAdCg1BDzUBybtQMDjLmVBiLzlMmlF7/n+PSz5OP8oBcIRxZwvhyxb9Hxl/NFK7GhmIfr2aMni6M",
+	"xWBt+IxnCrSJOd2S+V/DoMrJ538GLS+5r7MgTf8JAAD//+g+ma3eEwAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
