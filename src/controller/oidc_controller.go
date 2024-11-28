@@ -10,6 +10,7 @@ import (
 	"github.com/ansonallard/users-service/src/api"
 	"github.com/ansonallard/users-service/src/operations"
 	"github.com/ansonallard/users-service/src/service"
+	"github.com/ansonallard/users-service/utils"
 )
 
 type OidcController struct {
@@ -29,9 +30,9 @@ func (c *OidcController) OAuth2Token(r *http.Request) (*api.OAuth2TokenResponse,
 	r.ParseForm()
 	defer r.Body.Close()
 
-	return c.oidcService.Oauth2ClientCredentials(service.Input{
-		GrantType:    r.FormValue("grant_type"),
-		Scope:        r.FormValue("scope"),
+	return c.oidcService.Oauth2Token(service.Input{
+		GrantType:    api.OAuth2TokenRequestGrantType(r.FormValue("grant_type")),
+		Scope:        utils.ToAddress(r.FormValue("scope")),
 		ClientId:     *clientId,
 		ClientSecret: *clientSecret,
 	})

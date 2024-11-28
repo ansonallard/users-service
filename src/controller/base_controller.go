@@ -39,7 +39,7 @@ func (c *BaseController) ProcessRequest(opts ProcessRequestOpts) {
 	}
 
 	if err != nil {
-		utils.WriteResponse(opts.Writer, nil, http.StatusInternalServerError, err)
+		utils.WriteResponse(opts.Writer, nil, http.StatusBadRequest, err)
 		return
 	}
 

@@ -14,3 +14,7 @@ func ReturnPathWithTrailingSlash(path string) string {
 	}
 	return path
 }
+
+func ToAddress[T any](x T) *T {
+	return &x
+}
