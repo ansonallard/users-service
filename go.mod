@@ -1,4 +1,4 @@
-module ansonallard/users-service
+module github.com/ansonallard/users-service
 
 go 1.23.2
 

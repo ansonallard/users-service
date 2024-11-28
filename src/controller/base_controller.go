@@ -1,9 +1,10 @@
 package controller
 
 import (
-	"ansonallard/users-service/src/operations"
-	"ansonallard/users-service/utils"
 	"net/http"
+
+	"github.com/ansonallard/users-service/src/operations"
+	"github.com/ansonallard/users-service/utils"
 )
 
 type BaseController struct {

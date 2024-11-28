@@ -1,14 +1,15 @@
 package controller
 
 import (
-	"ansonallard/users-service/src/api"
-	"ansonallard/users-service/src/operations"
-	"ansonallard/users-service/src/service"
 	"encoding/base64"
 	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
+
+	"github.com/ansonallard/users-service/src/api"
+	"github.com/ansonallard/users-service/src/operations"
+	"github.com/ansonallard/users-service/src/service"
 )
 
 type OidcController struct {

@@ -1,8 +1,9 @@
 package service
 
 import (
-	"ansonallard/users-service/src/api"
 	"fmt"
+
+	"github.com/ansonallard/users-service/src/api"
 )
 
 type OidcService struct{}
