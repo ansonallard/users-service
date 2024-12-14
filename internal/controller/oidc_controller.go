@@ -28,9 +28,6 @@ func (c *OidcController) OAuth2Token(g *gin.Context) error {
 	if err != nil {
 		return c.errorHanding(g, err)
 	}
-	// fmt.Printf("clientId: %s, clientSecret: %s\n", *clientId, *clientSecret)
-	// body := []byte{}
-	// n, err := io.ReadAll(r.Body)
 	r.ParseForm()
 	defer r.Body.Close()
 
@@ -55,9 +52,10 @@ func (c *OidcController) OAuth2Authorize(g *gin.Context) error {
 	defer r.Body.Close()
 
 	redirectUri := r.FormValue("redirect_uri")
+	clientId := r.FormValue("client_id")
 	url, err := c.oidcService.OAuth2Authorize(api.OAuth2AuthorizationRequest{
 		ResponseType: api.OAuth2AuthorizationRequestResponseType(r.FormValue("response_type")),
-		ClientId:     r.FormValue("client_id"),
+		ClientId:     clientId,
 		RedirectUri:  &redirectUri,
 		Scope:        utils.ToAddress(r.FormValue("scope")),
 	})
@@ -65,11 +63,20 @@ func (c *OidcController) OAuth2Authorize(g *gin.Context) error {
 		return c.errorHanding(g, err)
 	}
 
-	redirect_url := url.String()
+	var redirect_url string
+	// redirect_url = url.String()
+	rurl, _ := url.Parse("http://localhost:5000/login")
+	q := rurl.Query()
+	q.Add("client_id", clientId)
+	q.Add("redirect_uri", redirectUri)
+	rurl.RawQuery = q.Encode()
+	redirect_url = rurl.String()
 
 	g.Redirect(http.StatusFound, redirect_url)
 	return nil
 }
+
+type myStruct struct{}
 
 func (c *OidcController) errorHanding(g *gin.Context, err error) error {
 	if _, ok := err.(*errors.OAuth2Error); ok {

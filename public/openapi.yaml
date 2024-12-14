@@ -14,7 +14,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateUserRequestDto"
+              $ref: "#/components/schemas/LoginDto"
       responses:
         201:
           $ref: "#/components/responses/CreateUserResponseDto"
@@ -170,6 +170,22 @@ components:
         password:
           type: string
           minLength: 8
+      required:
+        - username
+        - password
+    LoginDto:
+      type: object
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          pattern: ^[a-zA-Z0-9]+$
+        password:
+          type: string
+          minLength: 8
+        redirect_uri:
+          type: string
+          format: uri
       required:
         - username
         - password
