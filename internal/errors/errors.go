@@ -3,7 +3,7 @@ package errors
 import (
 	"fmt"
 
-	"github.com/ansonallard/users-service/src/api"
+	"github.com/ansonallard/users-service/internal/api"
 )
 
 type OAuth2Error struct {

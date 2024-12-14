@@ -3,8 +3,8 @@ package controller
 // import (
 // 	"net/http"
 
-// 	"github.com/ansonallard/users-service/src/operations"
-// 	"github.com/ansonallard/users-service/utils"
+// 	"github.com/ansonallard/users-service/internal/operations"
+// 	"github.com/ansonallard/users-service/internal/utils"
 // )
 
 // type BaseController struct {
@@ -34,14 +34,14 @@ package controller
 // 	case operations.OAUTH2_TOKEN:
 // 		response, err = c.oidcController.OAuth2Token(opts.Request)
 // 	default:
-// 		utils.WriteResponse(opts.Writer, nil, http.StatusNotImplemented, nil)
+// 		internal/utils.WriteResponse(opts.Writer, nil, http.StatusNotImplemented, nil)
 // 		return
 // 	}
 
 // 	if err != nil {
-// 		utils.WriteResponse(opts.Writer, nil, http.StatusBadRequest, err)
+// 		internal/utils.WriteResponse(opts.Writer, nil, http.StatusBadRequest, err)
 // 		return
 // 	}
 
-// 	utils.WriteResponse(opts.Writer, nil, http.StatusOK, response)
+// 	internal/utils.WriteResponse(opts.Writer, nil, http.StatusOK, response)
 // }

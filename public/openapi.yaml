@@ -98,8 +98,51 @@ paths:
           $ref: "#/components/responses/OAuthErrorBadRequest"
         401:
           $ref: "#/components/responses/OAuthErrorBadRequest"
+  /oauth/authorization:
+    get:
+      operationId: OAuth2Authorization
+      tags:
+      - Access Control
+      description: OAuth2 Authorization Implementation
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/OAuth2AuthorizationRequest"
+      responses:
+        302:
+          description: Success
+          headers:
+            Location:
+              description: Client requesting authorization code
+              schema:
+                type: string
+                format: uri
+        400:
+          $ref: "#/components/responses/OAuthErrorBadRequest"
+        401:
+          $ref: "#/components/responses/OAuthErrorBadRequest"
+
 components:
   schemas:
+    OAuth2AuthorizationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        response_type:
+          type: string
+          enum:
+          - code
+        scope:
+          type: string
+        client_id:
+          type: string
+        redirect_uri:
+          type: string
+          format: uri
+      required:
+        - response_type
+        - client_id
     ResetUserPasswordDto:
       type: object
       additionalProperties: false
@@ -174,6 +217,8 @@ components:
           - password
           - refresh_token
           - client_credentials
+        code:
+          type: string
         scope:
           type: string
           nullable: true

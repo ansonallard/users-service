@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/ansonallard/users-service/src/controller"
-	"github.com/ansonallard/users-service/src/env"
-	"github.com/ansonallard/users-service/src/service"
+	"github.com/ansonallard/users-service/internal/controller"
+	"github.com/ansonallard/users-service/internal/env"
+	"github.com/ansonallard/users-service/internal/service"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
@@ -17,10 +17,15 @@ import (
 )
 
 const (
-	OPENAPI_SPEC_FILE_PATH = "src/public/openapi.yaml"
+	OPENAPI_SPEC_FILE_PATH = "public/openapi.yaml"
 )
 
-//go:generate go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen -config=types.cfg.yaml src/public/openapi.yaml
+const (
+	OAUTH_TOKEN_ROUTE     = "/oauth/token"
+	OAUTH_AUTHORIZE_ROUTE = "/oauth/authorize"
+)
+
+//go:generate go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen -config=types.cfg.yaml public/openapi.yaml
 
 func ValidationMiddleware(router routers.Router) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -101,8 +106,15 @@ func main() {
 
 	cont := controller.NewOidcController(service.NewOidcService())
 
-	r.POST("/oauth/token", func(ctx *gin.Context) {
+	r.POST(OAUTH_TOKEN_ROUTE, func(ctx *gin.Context) {
 		err := cont.OAuth2Token(ctx)
+		if err != nil {
+			ctx.AbortWithStatus(http.StatusInternalServerError)
+		}
+	})
+
+	r.GET(OAUTH_AUTHORIZE_ROUTE, func(ctx *gin.Context) {
+		err := cont.OAuth2Authorize(ctx)
 		if err != nil {
 			ctx.AbortWithStatus(http.StatusInternalServerError)
 		}
