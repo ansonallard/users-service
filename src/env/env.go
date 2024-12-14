@@ -5,5 +5,9 @@ import (
 )
 
 func GetPort() string {
-	return os.Getenv("PORT")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "5000"
+	}
+	return port
 }

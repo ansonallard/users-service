@@ -13,7 +13,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
-	"github.com/getkin/kin-openapi/routers/gorillamux"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -97,36 +97,17 @@ func main() {
 		log.Fatalf("Error validating swagger spec: %v", err)
 	}
 
-	// Create router from OpenAPI spec
-	router, err := gorillamux.NewRouter(openAPISpec)
-	if err != nil {
-		log.Fatalf("Error creating router: %v", err)
-	}
+	r := gin.Default()
 
-	httpMultiplexer := http.NewServeMux()
+	cont := controller.NewOidcController(service.NewOidcService())
 
-	cont := controller.NewBaseController(controller.BaseControllerOpts{
-		OidcController: controller.NewOidcController(service.NewOidcService()),
-	})
-	validationMiddleware := ValidationMiddleware(router)
-	httpMultiplexer.Handle("/", validationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		route, _, err := router.FindRoute(r)
-		// Shouldn't get here as the validation will return
-		// route not found error
+	r.POST("/oauth/token", func(ctx *gin.Context) {
+		err := cont.OAuth2Token(ctx)
 		if err != nil {
-			fmt.Printf("err %+v", err)
-			return
+			ctx.AbortWithStatus(http.StatusInternalServerError)
 		}
-
-		cont.ProcessRequest(controller.ProcessRequestOpts{
-			OpenAPIOperationId: route.Operation.OperationID,
-			Request:            r,
-			Writer:             w})
-
-	})))
-
+	})
 	port := env.GetPort()
 	log.Printf("Server starting on :%s", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), httpMultiplexer))
-
+	r.Run(fmt.Sprintf(":%s", port))
 }

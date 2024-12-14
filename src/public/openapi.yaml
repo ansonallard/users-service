@@ -140,7 +140,7 @@ components:
         token_type:
           type: string
           enum:
-          - bearer
+          - Bearer
         expires_in:
           type: number
           example: 300
