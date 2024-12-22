@@ -153,15 +153,19 @@ func main() {
 			redirectURI = "" // Reset to empty if invalid
 		}
 		fmt.Println("redirectURI: " + redirectURI)
+		hostName := parsedURI.Scheme + "://" + parsedURI.Host
+		ctx.Header("Access-Control-Allow-Origin", hostName)
 		ctx.HTML(http.StatusOK, filepath.Base(htmlFilePath), gin.H{
-			"RedirectURI": redirectURI,
+			"RedirectURI":                 redirectURI,
+			"Access-Control-Allow-Origin": redirectURI,
 		})
 		// ctx.JSON(http.StatusOK, "hello")
 	})
 
 	origins := []string{
-		"http://localhost:3000", // React development server
-		"http://localhost:8080", // Your current server
+		"http://localhost:3000",          // React development server
+		"http://penguin.linux.test:3000", // React development server
+		"http://localhost:8080",          // Your current server
 		"http://127.0.0.1:3000",
 		"http://127.0.0.1:8080",
 		"https://oauth.pstmn.io/v1/callback",
@@ -203,20 +207,25 @@ func main() {
 		// ctx.JSON(http.StatusOK, myStruct{})
 
 		// Add CORS headers explicitly
-		ctx.Header("Access-Control-Allow-Origin", "http://localhost:5000")
-		// ctx.Header("Access-Control-Allow-Origin", "https://oauth.pstmn.io/v1/callback")
-		ctx.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		ctx.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
-		ctx.Header("Access-Control-Expose-Headers", "Location") // Expose Location header for the redirect
+		// ctx.Header("Access-Control-Allow-Origin", ctx.GetHeader("Origin"))
+		// // ctx.Header("Access-Control-Allow-Origin", "https://oauth.pstmn.io/v1/callback")
+		// ctx.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		// ctx.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		// ctx.Header("Access-Control-Expose-Headers", "Location") // Expose Location header for the redirect
 
 		fmt.Println("newUrl: " + newUrl)
 
-		ctx.Redirect(http.StatusFound, newUrl)
+		// ctx.JSON(http.StatusBadRequest, myStruct{})
+		ctx.JSON(http.StatusOK, UserLoginResponse{RedirectURL: newUrl})
 	})
 
 	port := env.GetPort()
 	log.Printf("Server starting on :%s", port)
 	r.Run(fmt.Sprintf(":%s", port))
+}
+
+type UserLoginResponse struct {
+	RedirectURL string `json:"redirectUrl"`
 }
 
 type myStruct struct{}

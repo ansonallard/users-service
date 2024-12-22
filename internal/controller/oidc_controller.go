@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -69,9 +70,14 @@ func (c *OidcController) OAuth2Authorize(g *gin.Context) error {
 	q := rurl.Query()
 	q.Add("client_id", clientId)
 	q.Add("redirect_uri", redirectUri)
+
+	corsUrl, _ := url.Parse(redirectUri)
 	rurl.RawQuery = q.Encode()
 	redirect_url = rurl.String()
 
+	hostName := corsUrl.Scheme + "://" + corsUrl.Host
+	fmt.Println(hostName)
+	g.Header("Access-Control-Allow-Origin", hostName)
 	g.Redirect(http.StatusFound, redirect_url)
 	return nil
 }

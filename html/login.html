@@ -70,26 +70,26 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify(requestBody),
             })
+            // .then(response => response.json())
             .then(response => {
-                // Check if it's a redirect response
-                if (response.type === 'opaqueredirect') {
-                    // The server has already redirected
-                    window.location = response.url;
-                    return null;
+                const statusCode = response.status;
+                if (statusCode === 200) {
+                    return response.json()
+                } else if (statusCode === 401) {
+                    messageDiv.innerHTML = '<p style="color: red;">Login Failed: ' + data.message + '</p>';
+                } else {
+                    throw new Error(`Received '${statusCode}' status code`)
                 }
-
-                // If not a redirect, process JSON response
-                return response.json();
             })
             .then(data => {
-                if (data) {
-                    if (data.success) {
-                        messageDiv.innerHTML = '<p style="color: green;">Login Successful!</p>';
-                    } else {
-                        messageDiv.innerHTML = '<p style="color: red;">Login Failed: ' + data.message + '</p>';
-                    }
+                console.log(data)
+                messageDiv.innerHTML = '<p style="color: green;">Login Successful! Redirecting...</p>';
+                if (data.redirectUrl) {
+                    // Perform client-side redirect
+                    console.log("redirecting")
+                    window.location.href = data.redirectUrl;
                 }
             })
             .catch(error => {
