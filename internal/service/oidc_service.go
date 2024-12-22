@@ -49,7 +49,7 @@ func (s *OidcService) Oauth2Token(request OAuth2TokenInput) (response *api.OAuth
 		return &response, nil
 	case api.AuthorizationCode:
 		response := api.OAuth2TokenResponse{
-			AccessToken:  "1234",
+			AccessToken:  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
 			ExpiresIn:    300,
 			TokenType:    api.Bearer,
 			RefreshToken: utils.ToAddress("abcd"),

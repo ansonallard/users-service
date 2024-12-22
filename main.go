@@ -114,6 +114,7 @@ func main() {
 	cont := controller.NewOidcController(service.NewOidcService())
 
 	r.POST(OAUTH_TOKEN_ROUTE, func(ctx *gin.Context) {
+		ctx.Header("Access-Control-Allow-Origin", "http://localhost:3000")
 		err := cont.OAuth2Token(ctx)
 		if err != nil {
 			ctx.AbortWithStatus(http.StatusInternalServerError)
