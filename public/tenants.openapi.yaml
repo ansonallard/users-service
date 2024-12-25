@@ -111,6 +111,10 @@ components:
           format: date-time
         version:
           type: string
+      required:
+      - tenantId
+      - createdAt
+      - version
 
     CreateUserRequest:
       type: object

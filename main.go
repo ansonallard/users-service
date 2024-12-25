@@ -21,6 +21,9 @@ import (
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 	"github.com/gin-gonic/gin"
+
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 const (
@@ -63,6 +66,9 @@ func ValidationMiddleware(router routers.Router) gin.HandlerFunc {
 			Route:      route,
 			Options: &openapi3filter.Options{
 				MultiError: true,
+				AuthenticationFunc: func(ctx context.Context, ai *openapi3filter.AuthenticationInput) error {
+					return nil
+				},
 			},
 		}
 
@@ -106,8 +112,22 @@ func ValidationMiddleware(router routers.Router) gin.HandlerFunc {
 	}
 }
 
+func configureDb(ctx context.Context, mongoClient *mongo.Client) {
+	usersServiceDb := mongoClient.Database("users-service")
+	tenantsCollection := usersServiceDb.Collection("tenants")
+	if tenantsCollection == nil {
+		usersServiceDb.CreateCollection(ctx, "tenants")
+		tenantsCollection = usersServiceDb.Collection("tenants")
+	}
+	// tenantsCollection.Indexes().CreateMany(ctx, []mongo.IndexModel{{}})
+}
+
 func main() {
 	ctx := context.Background()
+
+	mongoClient, _ := mongo.Connect(options.Client().ApplyURI("mongodb://localhost:27017"))
+
+	configureDb(ctx, mongoClient)
 
 	// Load and parse OpenAPI spec
 	loader := openapi3.NewLoader()
@@ -135,6 +155,10 @@ func main() {
 
 	ginRouter.Use(ValidationMiddleware(router))
 	cont := controller.NewOidcController(service.NewOidcService())
+	tenantsService := service.NewTenantService(mongoClient)
+	tenantsControllers := controller.NewTenantsContorller(tenantsService)
+	result, err := tenantsService.Get(ctx, "01JFZTDHKNTN15N4FAJ3561T30")
+	fmt.Println(result)
 
 	// Get current working directory
 	_, filename, _, ok := runtime.Caller(0)
@@ -157,6 +181,8 @@ func main() {
 			return
 		}
 
+		var operationErr error
+
 		switch route.Operation.OperationID {
 		case "OAuth2Authorize":
 			err := cont.OAuth2Authorize(c)
@@ -169,10 +195,7 @@ func main() {
 			c.JSON(http.StatusOK, myStruct{})
 		case "OAuth2Token":
 			c.Header("Access-Control-Allow-Origin", "http://localhost:3000")
-			err := cont.OAuth2Token(c)
-			if err != nil {
-				c.AbortWithStatus(http.StatusInternalServerError)
-			}
+			operationErr = cont.OAuth2Token(c)
 		case "LoginPage":
 			redirectURI := c.Query("redirect_uri")
 			parsedURI, err := url.Parse(redirectURI)
@@ -214,11 +237,17 @@ func main() {
 			fmt.Println("newUrl: " + newUrl)
 
 			c.JSON(http.StatusOK, api.UserLoginResponse{RedirectUrl: newUrl})
+		case "createTenant":
+			operationErr = tenantsControllers.CreateTenant(ctx, c)
 		default:
 			fmt.Println(route.Operation.OperationID)
 			c.JSON(http.StatusNoContent, myStruct{})
 		}
 
+		if operationErr != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
 	})
 
 	port := env.GetPort()
