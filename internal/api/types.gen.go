@@ -11,8 +11,13 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+)
+
+const (
+	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
 // Defines values for OAuth2AuthorizationRequestResponseType.
@@ -43,23 +48,33 @@ const (
 	Bearer OAuth2TokenResponseTokenType = "Bearer"
 )
 
-// CreateUserRequestDto defines model for CreateUserRequestDto.
-type CreateUserRequestDto struct {
+// CreateApplicationRequest defines model for CreateApplicationRequest.
+type CreateApplicationRequest struct {
+	Name  string   `json:"name"`
+	Users []string `json:"users"`
+}
+
+// CreateApplicationResponse defines model for CreateApplicationResponse.
+type CreateApplicationResponse struct {
+	ClientId *string `json:"clientId,omitempty"`
+}
+
+// CreateTenantResponse defines model for CreateTenantResponse.
+type CreateTenantResponse struct {
+	CreatedAt *time.Time `json:"createdAt,omitempty"`
+	TenantId  *string    `json:"tenantId,omitempty"`
+	Version   *string    `json:"version,omitempty"`
+}
+
+// CreateUserRequest defines model for CreateUserRequest.
+type CreateUserRequest struct {
 	Password string `json:"password"`
-	Username string `json:"username"`
 }
 
-// LoginDto defines model for LoginDto.
-type LoginDto struct {
-	Password    string  `json:"password"`
-	RedirectUri *string `json:"redirect_uri,omitempty"`
-	Username    string  `json:"username"`
-}
-
-// LoginResponse defines model for LoginResponse.
-type LoginResponse struct {
-	Token  string `json:"token"`
-	UserId string `json:"userId"`
+// ListApplicationUsersResponse defines model for ListApplicationUsersResponse.
+type ListApplicationUsersResponse struct {
+	NextToken *string   `json:"nextToken,omitempty"`
+	Usernames *[]string `json:"usernames,omitempty"`
 }
 
 // OAuth2AuthorizationRequest defines model for OAuth2AuthorizationRequest.
@@ -106,30 +121,36 @@ type OAuth2TokenResponse struct {
 // OAuth2TokenResponseTokenType defines model for OAuth2TokenResponse.TokenType.
 type OAuth2TokenResponseTokenType string
 
-// ResetUserPasswordDto defines model for ResetUserPasswordDto.
-type ResetUserPasswordDto struct {
+// ResetPasswordRequest defines model for ResetPasswordRequest.
+type ResetPasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 	OldPassword string `json:"oldPassword"`
-	Username    string `json:"username"`
 }
 
-// BadRequest defines model for BadRequest.
-type BadRequest struct {
+// UserLoginRequest defines model for UserLoginRequest.
+type UserLoginRequest struct {
+	Password    string  `json:"password"`
+	RedirectUri *string `json:"redirectUri,omitempty"`
+	Username    string  `json:"username"`
+}
+
+// UserLoginResponse defines model for UserLoginResponse.
+type UserLoginResponse struct {
+	RedirectUrl string `json:"redirectUrl"`
+}
+
+// BadRequestError defines model for BadRequestError.
+type BadRequestError struct {
 	Message *string `json:"message,omitempty"`
 }
 
-// Conflict defines model for Conflict.
-type Conflict struct {
+// ConflictError defines model for ConflictError.
+type ConflictError struct {
 	Message *string `json:"message,omitempty"`
 }
 
-// CreateUserResponseDto User created
-type CreateUserResponseDto struct {
-	Id string `json:"id"`
-}
-
-// Forbidden defines model for Forbidden.
-type Forbidden struct {
+// ForbiddenError defines model for ForbiddenError.
+type ForbiddenError struct {
 	Message *string `json:"message,omitempty"`
 }
 
@@ -138,55 +159,78 @@ type InternalServerError struct {
 	Message *string `json:"message,omitempty"`
 }
 
-// OAuthErrorBadRequest defines model for OAuthErrorBadRequest.
-type OAuthErrorBadRequest = OAuth2ErrorSchema
-
-// UnAuthorized defines model for UnAuthorized.
-type UnAuthorized struct {
+// NotFoundError defines model for NotFoundError.
+type NotFoundError struct {
 	Message *string `json:"message,omitempty"`
 }
 
-// OAuth2AuthorizationFormdataRequestBody defines body for OAuth2Authorization for application/x-www-form-urlencoded ContentType.
-type OAuth2AuthorizationFormdataRequestBody = OAuth2AuthorizationRequest
+// OAuthErrorBadRequest defines model for OAuthErrorBadRequest.
+type OAuthErrorBadRequest = OAuth2ErrorSchema
+
+// UnauthorizedError defines model for UnauthorizedError.
+type UnauthorizedError struct {
+	Message *string `json:"message,omitempty"`
+}
+
+// ListApplicationUsersParams defines parameters for ListApplicationUsers.
+type ListApplicationUsersParams struct {
+	NextToken  *string `form:"nextToken,omitempty" json:"nextToken,omitempty"`
+	MaxResults *int    `form:"maxResults,omitempty" json:"maxResults,omitempty"`
+}
+
+// OAuth2AuthorizeFormdataRequestBody defines body for OAuth2Authorize for application/x-www-form-urlencoded ContentType.
+type OAuth2AuthorizeFormdataRequestBody = OAuth2AuthorizationRequest
 
 // OAuth2TokenFormdataRequestBody defines body for OAuth2Token for application/x-www-form-urlencoded ContentType.
 type OAuth2TokenFormdataRequestBody = OAuth2TokenRequest
 
-// CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
-type CreateUserJSONRequestBody = LoginDto
+// CreateApplicationJSONRequestBody defines body for CreateApplication for application/json ContentType.
+type CreateApplicationJSONRequestBody = CreateApplicationRequest
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
-type LoginJSONRequestBody = CreateUserRequestDto
+type LoginJSONRequestBody = UserLoginRequest
 
-// ResetPasswordJSONRequestBody defines body for ResetPassword for application/json ContentType.
-type ResetPasswordJSONRequestBody = ResetUserPasswordDto
+// CreateOrUpdateUserJSONRequestBody defines body for CreateOrUpdateUser for application/json ContentType.
+type CreateOrUpdateUserJSONRequestBody = CreateUserRequest
+
+// ResetUserPasswordJSONRequestBody defines body for ResetUserPassword for application/json ContentType.
+type ResetUserPasswordJSONRequestBody = ResetPasswordRequest
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

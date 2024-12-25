@@ -63,9 +63,11 @@
 
             const requestBody = {username, password}
             if (redirectURI !== undefined) {
-                requestBody.redirect_uri = redirectURI
+                requestBody.redirectUri = redirectURI
             }
-            fetch('/users/login', {
+
+            const tenandId = "admin"
+            fetch(`/tenants/${tenandId}/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

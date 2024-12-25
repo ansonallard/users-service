@@ -47,16 +47,20 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 
 func ValidationMiddleware(router routers.Router) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// c.Header("Access-Control-Allow-Origin", "http://localhost:3000")
+
+		// return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Find route
 		route, pathParams, err := router.FindRoute(c.Request)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Error finding route: %v", err)})
+			// http.Error(w, fmt.Sprintf("Error finding route: %v", err), http.StatusBadRequest)
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Error finding route: %v", err)})
 			c.Abort()
 			return
 		}
 
+		// Create validation context
 		ctx := context.Background()
-
-		// Validate Request
 		requestValidationInput := &openapi3filter.RequestValidationInput{
 			Request:    c.Request,
 			PathParams: pathParams,
@@ -69,9 +73,18 @@ func ValidationMiddleware(router routers.Router) gin.HandlerFunc {
 		if err := openapi3filter.ValidateRequest(ctx, requestValidationInput); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Error validating request: %v", err)})
 			c.Abort()
+			// http.Error(w, fmt.Sprintf("Error validating request: %v", err), http.StatusBadRequest)
 			return
 		}
 
+		// // Create response recorder
+		// rr := httptest.NewRecorder()
+		// next.ServeHTTP(rr, r)
+
+		// // Copy response
+		// response := rr.Result()
+
+		// Create response recorder to capture the response
 		writer := &responseWriter{
 			ResponseWriter: c.Writer,
 			body:           []byte{},
@@ -81,7 +94,7 @@ func ValidationMiddleware(router routers.Router) gin.HandlerFunc {
 		// Process the request
 		c.Next()
 
-		// Validate Response
+		// Validate response
 		responseValidationInput := &openapi3filter.ResponseValidationInput{
 			RequestValidationInput: requestValidationInput,
 			Status:                 writer.Status(),
@@ -92,17 +105,23 @@ func ValidationMiddleware(router routers.Router) gin.HandlerFunc {
 			},
 		}
 
-		// Third party package does not validate non application/json response types
-		// Do not validate responses for text/html respones types
 		if route.Operation.OperationID == "LoginPage" {
 			responseValidationInput.Options.ExcludeResponseBody = true
 		}
 
 		if err := openapi3filter.ValidateResponse(ctx, responseValidationInput); err != nil {
 			log.Printf("Error validating response: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error validating response: %v", err)})
+			// http.Error(w, fmt.Sprintf("Error validating response: %v", err), http.StatusInternalServerError)
 			return
 		}
+
+		// Copy the validated response to the original writer
+		// for k, v := range rr.Header() {
+		// 	w.Header()[k] = v
+		// }
+		// w.WriteHeader(rr.Code)
+		// w.Write(rr.Body.Bytes())
+		// })
 	}
 }
 
@@ -122,6 +141,8 @@ func main() {
 		log.Fatalf("Error validating swagger spec: %v", err)
 	}
 
+	// r := gin.Default()
+
 	// Create router from OpenAPI spec
 	router, err := gorillamux.NewRouter(openAPISpec)
 	if err != nil {
@@ -136,7 +157,6 @@ func main() {
 	ginRouter.Use(ValidationMiddleware(router))
 	cont := controller.NewOidcController(service.NewOidcService())
 
-	// Get current working directory
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
 		log.Fatal("Unable to get the current file path")
@@ -151,6 +171,7 @@ func main() {
 	ginRouter.LoadHTMLFiles(htmlFilePath)
 
 	ginRouter.Any("/*path", func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "http://localhost:3000")
 		route, _, err := router.FindRoute(c.Request)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Error finding route: %v", err)})
@@ -188,6 +209,7 @@ func main() {
 				"Access-Control-Allow-Origin": redirectURI,
 			})
 		case "login":
+			// r := ctx.Request
 			defer c.Request.Body.Close()
 
 			var body api.UserLoginRequest
@@ -203,6 +225,7 @@ func main() {
 			q.Add("code", "abc123")
 			url.RawQuery = q.Encode()
 			newUrl := url.String()
+			// ctx.JSON(http.StatusOK, myStruct{})
 
 			// Add CORS headers explicitly
 			// ctx.Header("Access-Control-Allow-Origin", ctx.GetHeader("Origin"))
@@ -213,7 +236,8 @@ func main() {
 
 			fmt.Println("newUrl: " + newUrl)
 
-			c.JSON(http.StatusOK, api.UserLoginResponse{RedirectUrl: newUrl})
+			// ctx.JSON(http.StatusBadRequest, myStruct{})
+			c.JSON(http.StatusOK, UserLoginResponse{RedirectURL: newUrl})
 		default:
 			fmt.Println(route.Operation.OperationID)
 			c.JSON(http.StatusNoContent, myStruct{})
@@ -221,9 +245,104 @@ func main() {
 
 	})
 
+	// r.POST(OAUTH_TOKEN_ROUTE, func(ctx *gin.Context) {
+	// })
+
+	// r.GET(OAUTH_AUTHORIZE_ROUTE, func(ctx *gin.Context) {
+	// 	err := cont.OAuth2Authorize(ctx)
+	// 	if err != nil {
+	// 		ctx.AbortWithStatus(http.StatusInternalServerError)
+	// 	}
+	// })
+
+	// r.LoadHTMLFiles(htmlFilePath)
+
+	// r.GET("/", func(ctx *gin.Context) {
+	// 	ctx.JSON(http.StatusOK, myStruct{})
+	// })
+
+	// r.GET("/login", func(ctx *gin.Context) {
+
+	// 	redirectURI := ctx.Query("redirect_uri")
+	// 	parsedURI, err := url.Parse(redirectURI)
+	// 	if err != nil || (parsedURI.Scheme == "" && redirectURI != "") {
+	// 		log.Printf("Invalid redirect_uri: %s", redirectURI)
+	// 		redirectURI = "" // Reset to empty if invalid
+	// 	}
+	// 	fmt.Println("redirectURI: " + redirectURI)
+	// 	hostName := parsedURI.Scheme + "://" + parsedURI.Host
+	// 	ctx.Header("Access-Control-Allow-Origin", hostName)
+	// 	ctx.HTML(http.StatusOK, filepath.Base(htmlFilePath), gin.H{
+	// 		"RedirectURI":                 redirectURI,
+	// 		"Access-Control-Allow-Origin": redirectURI,
+	// 	})
+	// 	// ctx.JSON(http.StatusOK, "hello")
+	// })
+
+	// origins := []string{
+	// 	"http://localhost:3000",          // React development server
+	// 	"http://penguin.linux.test:3000", // React development server
+	// 	"http://localhost:8080",          // Your current server
+	// 	"http://127.0.0.1:3000",
+	// 	"http://127.0.0.1:8080",
+	// 	"https://oauth.pstmn.io/v1/callback",
+	// }
+	// r.Use(cors.New(cors.Config{
+	// 	AllowOrigins: origins,
+	// 	AllowMethods: []string{"GET", "POST", "OPTIONS"},
+	// 	AllowHeaders: []string{
+	// 		"Origin",
+	// 		"Content-Type",
+	// 		"Accept",
+	// 		"Authorization",
+	// 	},
+	// 	ExposeHeaders: []string{
+	// 		"Content-Length",
+	// 		"Location", // Important for redirect headers
+	// 	},
+	// 	AllowCredentials: true,
+	// }))
+
+	// r.POST(USERS_LOGIN, func(ctx *gin.Context) {
+
+	// 	r := ctx.Request
+	// 	defer r.Body.Close()
+
+	// 	var body api.LoginDto
+	// 	if err := ctx.BindJSON(&body); err != nil {
+	// 		ctx.AbortWithStatus(http.StatusInternalServerError)
+	// 	}
+	// 	fmt.Println(body)
+	// 	url, err := url.Parse(*body.RedirectUri)
+	// 	if err != nil {
+	// 		ctx.AbortWithStatus(http.StatusInternalServerError)
+	// 	}
+	// 	q := url.Query()
+	// 	q.Add("code", "abc123")
+	// 	url.RawQuery = q.Encode()
+	// 	newUrl := url.String()
+	// 	// ctx.JSON(http.StatusOK, myStruct{})
+
+	// 	// Add CORS headers explicitly
+	// 	// ctx.Header("Access-Control-Allow-Origin", ctx.GetHeader("Origin"))
+	// 	// // ctx.Header("Access-Control-Allow-Origin", "https://oauth.pstmn.io/v1/callback")
+	// 	// ctx.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	// 	// ctx.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+	// 	// ctx.Header("Access-Control-Expose-Headers", "Location") // Expose Location header for the redirect
+
+	// 	fmt.Println("newUrl: " + newUrl)
+
+	// 	// ctx.JSON(http.StatusBadRequest, myStruct{})
+	// 	ctx.JSON(http.StatusOK, UserLoginResponse{RedirectURL: newUrl})
+	// })
+
 	port := env.GetPort()
 	log.Printf("Server starting on :%s", port)
 	ginRouter.Run(fmt.Sprintf(":%s", port))
+}
+
+type UserLoginResponse struct {
+	RedirectURL string `json:"redirectUrl"`
 }
 
 type myStruct struct{}
