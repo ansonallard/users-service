@@ -157,8 +157,8 @@ func main() {
 	cont := controller.NewOidcController(service.NewOidcService())
 	tenantsService := service.NewTenantService(mongoClient)
 	tenantsControllers := controller.NewTenantsContorller(tenantsService)
-	result, err := tenantsService.Get(ctx, "01JFZTDHKNTN15N4FAJ3561T30")
-	fmt.Println(result)
+	usersService := service.NewUsersService(&tenantsService, mongoClient)
+	usersController := controller.NewUsersController(&usersService)
 
 	// Get current working directory
 	_, filename, _, ok := runtime.Caller(0)
@@ -175,7 +175,7 @@ func main() {
 	ginRouter.LoadHTMLFiles(htmlFilePath)
 
 	ginRouter.Any("/*path", func(c *gin.Context) {
-		route, _, err := router.FindRoute(c.Request)
+		route, pathParams, err := router.FindRoute(c.Request)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Error finding route: %v", err)})
 			return
@@ -239,6 +239,8 @@ func main() {
 			c.JSON(http.StatusOK, api.UserLoginResponse{RedirectUrl: newUrl})
 		case "createTenant":
 			operationErr = tenantsControllers.CreateTenant(ctx, c)
+		case "createUser":
+			operationErr = usersController.CreateUser(ctx, c, pathParams)
 		default:
 			fmt.Println(route.Operation.OperationID)
 			c.JSON(http.StatusNoContent, myStruct{})

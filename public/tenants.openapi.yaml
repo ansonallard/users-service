@@ -390,8 +390,8 @@ paths:
 
   /tenants/{id}/users/{username}:
     put:
-      operationId: createOrUpdateUser
-      summary: Create or update a user
+      operationId: createUser
+      summary: Create a user
       security:
         - bearerAuth: []
       parameters:

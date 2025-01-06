@@ -7,6 +7,7 @@ import (
 
 	"github.com/ansonallard/users-service/internal/api"
 	"github.com/oklog/ulid/v2"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
@@ -38,17 +39,24 @@ func (t *TenantsService) Create(ctx context.Context) (*api.CreateTenantResponse,
 	}, nil
 }
 
-func (t *TenantsService) Get(ctx context.Context, id string) (TenantModel, error) {
+func (t *TenantsService) Get(ctx context.Context, id string) (*TenantModel, error) {
 	var tenant TenantModel
-	result := t.mongoClient.Database("users-service").Collection("tenants").FindOne(ctx, struct{ id string }{
-		id: id,
+	result := t.mongoClient.Database("users-service").Collection("tenants").FindOne(ctx, bson.M{
+		"id": id,
 	})
 	fmt.Printf("%+v", result)
 	err := result.Decode(&tenant)
 	if err != nil {
-		fmt.Printf("error: %+v", err)
+		if err == mongo.ErrNoDocuments {
+			return nil, fmt.Errorf("tenant not found with id %s", id)
+		}
+		return nil, fmt.Errorf("error decoding tenant: %v", err)
 	}
-	return tenant, nil
+	return &tenant, nil
+}
+
+type TenantFilter struct {
+	ID string `bson:"id"`
 }
 
 type TenantModel struct {
