@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"github.com/ansonallard/users-service/internal/api"
 	"github.com/ansonallard/users-service/internal/constants"
@@ -65,11 +66,23 @@ func (s *OidcService) Oauth2Token(request OAuth2TokenInput) (response *api.OAuth
 
 		result, err := keys.Decrypt(request.Code, encryptionKey)
 		if err != nil {
-			return nil, err
+			return nil, &errors.OAuth2Error{
+				OAuth2Error: api.InvalidGrant,
+			}
 		}
 		var authorizationData AuthorizationCode
 		if err = json.Unmarshal(result, &authorizationData); err != nil {
-			return nil, err
+			return nil, &errors.OAuth2Error{
+				OAuth2Error: api.InvalidGrant,
+			}
+		}
+
+		// TODO: Validate client id and redirect uri
+
+		if authorizationData.Exp.Before(time.Now().UTC()) {
+			return nil, &errors.OAuth2Error{
+				OAuth2Error: api.InvalidGrant,
+			}
 		}
 		response := api.OAuth2TokenResponse{
 			AccessToken:  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",

@@ -16,14 +16,17 @@ import (
 
 type OidcController struct {
 	oidcService *service.OidcService
+	hostname    string
 }
 
-func NewOidcController(oidcService *service.OidcService) *OidcController {
-	return &OidcController{oidcService: oidcService}
+func NewOidcController(oidcService *service.OidcService, hostname string) *OidcController {
+	return &OidcController{
+		oidcService: oidcService,
+		hostname:    hostname,
+	}
 }
 
 func (c *OidcController) OAuth2Token(g *gin.Context) error {
-
 	r := g.Request
 	clientId, clientSecret, err := c.parseBasicAuthorizationHeader(r)
 	if err != nil {
@@ -66,8 +69,7 @@ func (c *OidcController) OAuth2Authorize(g *gin.Context) error {
 	}
 
 	var redirect_url string
-	// redirect_url = url.String()
-	rurl, _ := url.Parse("http://localhost:5000/login")
+	rurl, _ := url.Parse(fmt.Sprintf("%s/login", c.hostname))
 	q := rurl.Query()
 	q.Add("client_id", clientId)
 	q.Add("redirect_uri", redirectUri)

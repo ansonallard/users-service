@@ -8,7 +8,7 @@ import (
 
 type OAuth2Error struct {
 	OAuth2Error api.OAuth2ErrorSchemaError `json:"error"`
-	Err         error                      `json:"omitempty"`
+	Err         error                      `json:",omitempty"`
 }
 
 func (e *OAuth2Error) Error() string {

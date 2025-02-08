@@ -73,7 +73,7 @@ func (u *UsersController) Login(ctx context.Context, g *gin.Context, pathParams 
 			g.AbortWithStatus(http.StatusUnauthorized)
 			return nil
 		case errors.NotAuthorizedError:
-			g.AbortWithStatus(http.StatusUnauthorized)
+			g.JSON(http.StatusUnauthorized, map[string]string{"message": "unauthorized"})
 			return nil
 		default:
 			return err

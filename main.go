@@ -183,8 +183,12 @@ func main() {
 	ginRouter := gin.New()
 	ginRouter.Use(gin.Recovery())
 
+	hostname := env.GetHostname()
 	ginRouter.Use(ValidationMiddleware(router))
-	cont := controller.NewOidcController(service.NewOidcService(mongoClient))
+	cont := controller.NewOidcController(
+		service.NewOidcService(mongoClient),
+		hostname,
+	)
 	tenantsService := service.NewTenantService(mongoClient)
 	tenantsControllers := controller.NewTenantsContorller(tenantsService)
 	usersService := service.NewUsersService(&tenantsService, mongoClient)
