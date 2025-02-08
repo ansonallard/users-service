@@ -4,131 +4,95 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
-	"errors"
-	"fmt"
-	"strings"
 
 	"golang.org/x/crypto/argon2"
 )
 
-type params struct {
-	memory      uint32
-	iterations  uint32
-	parallelism uint8
-	saltLength  uint32
-	keyLength   uint32
+type HashParams struct {
+	Memory      uint32 `bson:"memory"`
+	Iterations  uint32 `bson:"iterations"`
+	Parallelism uint8  `bson:"parallelism"`
+	SaltLength  uint32 `bson:"salt_length"`
+	KeyLength   uint32 `bson:"key_length"`
 }
 
 // Default parameters for Argon2id
-var DefaultParams = &params{
-	memory:      64 * 1024, // 64MB
-	iterations:  3,
-	parallelism: 2,
-	saltLength:  16,
-	keyLength:   32,
+var DefaultParams = &HashParams{
+	Memory:      64 * 1024, // 64MB
+	Iterations:  3,
+	Parallelism: 2,
+	SaltLength:  16,
+	KeyLength:   32,
 }
 
 // HashPassword hashes a password using Argon2id
-func HashPassword(password string) (hashedPassword string, err error) {
+func HashPassword(password string) (hashedPasswordParams *EncodedHashParams, err error) {
 	// Generate random salt
-	salt := make([]byte, DefaultParams.saltLength)
+	salt := make([]byte, DefaultParams.SaltLength)
 	if _, err = rand.Read(salt); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Hash the password
 	hash := argon2.IDKey(
 		[]byte(password),
 		salt,
-		DefaultParams.iterations,
-		DefaultParams.memory,
-		DefaultParams.parallelism,
-		DefaultParams.keyLength,
+		DefaultParams.Iterations,
+		DefaultParams.Memory,
+		DefaultParams.Parallelism,
+		DefaultParams.KeyLength,
 	)
 
 	// Encode parameters, salt, and hash into string
 	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
 
-	// Format: $argon2id$v=19$m=memory,t=iterations,p=parallelism$salt$hash
-	hashedPassword = fmt.Sprintf(
-		"$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
-		argon2.Version,
-		DefaultParams.memory,
-		DefaultParams.iterations,
-		DefaultParams.parallelism,
-		b64Salt,
-		b64Hash,
-	)
+	hashedPassword := EncodedHashParams{
+		Argon2Version: argon2.Version,
+		B64Salt:       b64Salt,
+		B64Hash:       b64Hash,
+		HashParams: HashParams{
+			Memory:      DefaultParams.Memory,
+			Iterations:  DefaultParams.Iterations,
+			Parallelism: DefaultParams.Parallelism,
+			SaltLength:  DefaultParams.SaltLength,
+			KeyLength:   DefaultParams.KeyLength,
+		},
+	}
 
-	return hashedPassword, nil
+	return &hashedPassword, nil
+}
+
+type EncodedHashParams struct {
+	HashParams
+	Argon2Version int    `bson:"argon2_version"`
+	B64Salt       string `bson:"b64_salt"`
+	B64Hash       string `bson:"b64_hash"`
 }
 
 // VerifyPassword checks if a password matches a hash
-func VerifyPassword(password, encodedHash string) (match bool, err error) {
-	// Extract params, salt, and hash from encoded string
-	var p *params
-	var salt, hash []byte
-	p, salt, hash, err = decodeHash(encodedHash)
+func VerifyPassword(password string, encodedHash *EncodedHashParams) (match bool, err error) {
+	salt, err := base64.RawStdEncoding.DecodeString(encodedHash.B64Salt)
+	if err != nil {
+		return false, err
+	}
+
+	storedHash, err := base64.RawStdEncoding.DecodeString(encodedHash.B64Hash)
 	if err != nil {
 		return false, err
 	}
 
 	// Hash the password with the same params and salt
-	otherHash := argon2.IDKey(
+	incomingHash := argon2.IDKey(
 		[]byte(password),
 		salt,
-		p.iterations,
-		p.memory,
-		p.parallelism,
-		p.keyLength,
+		encodedHash.Iterations,
+		encodedHash.Memory,
+		encodedHash.Parallelism,
+		encodedHash.KeyLength,
 	)
 
 	// Compare hashes in constant time
-	match = subtle.ConstantTimeCompare(hash, otherHash) == 1
+	match = subtle.ConstantTimeCompare(storedHash, incomingHash) == 1
 	return match, nil
-}
-
-func decodeHash(encodedHash string) (p *params, salt []byte, hash []byte, err error) {
-	parts := strings.Split(encodedHash, "$")
-	if len(parts) != 6 {
-		return nil, nil, nil, errors.New("invalid hash format")
-	}
-
-	if parts[1] != "argon2id" {
-		return nil, nil, nil, errors.New("unsupported algorithm")
-	}
-
-	var version int
-	_, err = fmt.Sscanf(parts[2], "v=%d", &version)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	if version != argon2.Version {
-		return nil, nil, nil, errors.New("incompatible version")
-	}
-
-	p = &params{}
-	_, err = fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d",
-		&p.memory,
-		&p.iterations,
-		&p.parallelism,
-	)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	salt, err = base64.RawStdEncoding.DecodeString(parts[4])
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	p.saltLength = uint32(len(salt))
-
-	hash, err = base64.RawStdEncoding.DecodeString(parts[5])
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	p.keyLength = uint32(len(hash))
-
-	return p, salt, hash, nil
 }

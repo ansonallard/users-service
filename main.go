@@ -12,9 +12,10 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/ansonallard/users-service/internal/api"
+	"github.com/ansonallard/users-service/internal/constants"
 	"github.com/ansonallard/users-service/internal/controller"
 	"github.com/ansonallard/users-service/internal/env"
+	"github.com/ansonallard/users-service/internal/keys"
 	"github.com/ansonallard/users-service/internal/service"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -22,6 +23,7 @@ import (
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 	"github.com/gin-gonic/gin"
 
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
@@ -119,6 +121,23 @@ func configureDb(ctx context.Context, mongoClient *mongo.Client) {
 		usersServiceDb.CreateCollection(ctx, "tenants")
 		tenantsCollection = usersServiceDb.Collection("tenants")
 	}
+	usersCollection := usersServiceDb.Collection("users")
+	if usersCollection == nil {
+		usersServiceDb.CreateCollection(ctx, "users")
+		usersCollection = usersServiceDb.Collection("users")
+		usersCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+			Keys: bson.D{
+				{"username", 1},
+				{"tenant_id", 1},
+			},
+			Options: options.Index().SetUnique(true),
+		})
+	}
+	// usersCodesCollection := usersServiceDb.Collection("users_code")
+	// if usersCodesCollection == nil {
+	// 	usersServiceDb.CreateCollection(ctx, "users_code")
+	// 	usersCodesCollection = usersServiceDb.Collection("users_code")
+	// }
 	// tenantsCollection.Indexes().CreateMany(ctx, []mongo.IndexModel{{}})
 }
 
@@ -129,6 +148,17 @@ func main() {
 
 	configureDb(ctx, mongoClient)
 
+	if _, err := os.Stat(constants.AUTHORIZATION_ENCRYPTION_FILENAME); err != nil {
+		key, err := keys.GenerateKey()
+		if err != nil {
+			log.Panicf("Error generating key")
+		}
+
+		err = keys.SaveKeyToFile(key, constants.AUTHORIZATION_ENCRYPTION_FILENAME)
+		if err != nil {
+			log.Panicf("Error writing key to file")
+		}
+	}
 	// Load and parse OpenAPI spec
 	loader := openapi3.NewLoader()
 	openAPISpec, err := loader.LoadFromFile(OPENAPI_SPEC_FILE_PATH)
@@ -154,7 +184,7 @@ func main() {
 	ginRouter.Use(gin.Recovery())
 
 	ginRouter.Use(ValidationMiddleware(router))
-	cont := controller.NewOidcController(service.NewOidcService())
+	cont := controller.NewOidcController(service.NewOidcService(mongoClient))
 	tenantsService := service.NewTenantService(mongoClient)
 	tenantsControllers := controller.NewTenantsContorller(tenantsService)
 	usersService := service.NewUsersService(&tenantsService, mongoClient)
@@ -211,32 +241,7 @@ func main() {
 				"Access-Control-Allow-Origin": redirectURI,
 			})
 		case "login":
-			defer c.Request.Body.Close()
-
-			var body api.UserLoginRequest
-			if err := c.BindJSON(&body); err != nil {
-				c.AbortWithStatus(http.StatusInternalServerError)
-			}
-			fmt.Println(body)
-			url, err := url.Parse(*body.RedirectUri)
-			if err != nil {
-				c.AbortWithStatus(http.StatusInternalServerError)
-			}
-			q := url.Query()
-			q.Add("code", "abc123")
-			url.RawQuery = q.Encode()
-			newUrl := url.String()
-
-			// Add CORS headers explicitly
-			// ctx.Header("Access-Control-Allow-Origin", ctx.GetHeader("Origin"))
-			// // ctx.Header("Access-Control-Allow-Origin", "https://oauth.pstmn.io/v1/callback")
-			// ctx.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			// ctx.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
-			// ctx.Header("Access-Control-Expose-Headers", "Location") // Expose Location header for the redirect
-
-			fmt.Println("newUrl: " + newUrl)
-
-			c.JSON(http.StatusOK, api.UserLoginResponse{RedirectUrl: newUrl})
+			operationErr = usersController.Login(ctx, c, pathParams)
 		case "createTenant":
 			operationErr = tenantsControllers.CreateTenant(ctx, c)
 		case "createUser":

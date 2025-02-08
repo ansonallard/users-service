@@ -35,6 +35,7 @@ func (c *OidcController) OAuth2Token(g *gin.Context) error {
 	response, err := c.oidcService.Oauth2Token(service.OAuth2TokenInput{
 		GrantType:    api.OAuth2TokenRequestGrantType(r.FormValue("grant_type")),
 		Scope:        utils.ToAddress(r.FormValue("scope")),
+		Code:         r.FormValue("code"),
 		ClientId:     *clientId,
 		ClientSecret: *clientSecret,
 	})

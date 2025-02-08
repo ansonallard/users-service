@@ -19,3 +19,34 @@ func (e *OAuth2Error) Error() string {
 func (e *OAuth2Error) Unwrap() error {
 	return e.Err
 }
+
+type UserNotFoundError struct {
+	Usr      string
+	TenantId string
+	Err      error
+}
+
+func (e UserNotFoundError) Error() string {
+	return fmt.Sprintf("user '%s' not found in tenant '%s'", e.Usr, e.TenantId)
+}
+
+type TenantNotFoundError struct {
+	Id string
+}
+
+func (t TenantNotFoundError) Error() string {
+	return fmt.Sprintf("tenant not found with id %s", t.Id)
+}
+
+type UserExistsError struct {
+}
+
+func (u UserExistsError) Error() string {
+	return "error: user already exists"
+}
+
+type NotAuthorizedError struct{}
+
+func (n NotAuthorizedError) Error() string {
+	return "Not Authorized"
+}

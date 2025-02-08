@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ansonallard/users-service/internal/api"
+	"github.com/ansonallard/users-service/internal/errors"
 	"github.com/oklog/ulid/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -13,6 +14,11 @@ import (
 
 type TenantsService struct {
 	mongoClient *mongo.Client
+}
+
+type ITenants interface {
+	Get(ctx context.Context, id string) (*TenantModel, error)
+	Create(ctx context.Context) (*api.CreateTenantResponse, error)
 }
 
 func NewTenantService(mongoClient *mongo.Client) TenantsService {
@@ -48,7 +54,7 @@ func (t *TenantsService) Get(ctx context.Context, id string) (*TenantModel, erro
 	err := result.Decode(&tenant)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return nil, fmt.Errorf("tenant not found with id %s", id)
+			return nil, errors.TenantNotFoundError{Id: id}
 		}
 		return nil, fmt.Errorf("error decoding tenant: %v", err)
 	}
@@ -63,4 +69,10 @@ type TenantModel struct {
 	Id        string    `bson:"id"`
 	CreatedAt time.Time `bson:"createdAt"`
 	Version   string    `bson:"version"`
+}
+
+type CreateUserDTO struct {
+	Username string
+	TenantId string
+	Password string
 }

@@ -6,8 +6,9 @@ info:
   contact:
     name: Anson Allard
 
-# servers:
-#   - url: /v1
+servers:
+- url: "http://localhost:5000"
+  # - url: /v1
 
 components:
   securitySchemes:
@@ -391,7 +392,7 @@ paths:
   /tenants/{id}/users/{username}:
     put:
       operationId: createUser
-      summary: Create a user
+      summary: Create a user in a tenant
       security:
         - bearerAuth: []
       parameters:

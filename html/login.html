@@ -66,8 +66,8 @@
                 requestBody.redirectUri = redirectURI
             }
 
-            const tenandId = "admin"
-            fetch(`/tenants/${tenandId}/login`, {
+            const tenantId = "01JH1VV6W6NSKYFENVCNVPEN07"
+            fetch(`/tenants/${tenantId}/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -80,12 +80,16 @@
                 if (statusCode === 200) {
                     return response.json()
                 } else if (statusCode === 401) {
-                    messageDiv.innerHTML = '<p style="color: red;">Login Failed: ' + data.message + '</p>';
+                    messageDiv.innerHTML = '<p style="color: red;">Invalid username or password combination.</p>';
+                    return;
                 } else {
                     throw new Error(`Received '${statusCode}' status code`)
                 }
             })
             .then(data => {
+                if (data === undefined) {
+                    return
+                }
                 console.log(data)
                 messageDiv.innerHTML = '<p style="color: green;">Login Successful! Redirecting...</p>';
                 if (data.redirectUrl) {

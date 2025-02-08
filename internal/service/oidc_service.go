@@ -1,22 +1,31 @@
 package service
 
 import (
+	"encoding/json"
 	"net/url"
 
 	"github.com/ansonallard/users-service/internal/api"
+	"github.com/ansonallard/users-service/internal/constants"
 	"github.com/ansonallard/users-service/internal/errors"
+	"github.com/ansonallard/users-service/internal/keys"
 	"github.com/ansonallard/users-service/internal/utils"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-type OidcService struct{}
+type OidcService struct {
+	db *mongo.Client
+}
 
-func NewOidcService() *OidcService {
-	return &OidcService{}
+func NewOidcService(mongoClient *mongo.Client) *OidcService {
+	return &OidcService{
+		db: mongoClient,
+	}
 }
 
 type OAuth2TokenInput struct {
 	GrantType    api.OAuth2TokenRequestGrantType
 	Scope        *string
+	Code         string
 	ClientId     string
 	ClientSecret string
 }
@@ -48,6 +57,20 @@ func (s *OidcService) Oauth2Token(request OAuth2TokenInput) (response *api.OAuth
 		}
 		return &response, nil
 	case api.AuthorizationCode:
+
+		encryptionKey, err := keys.ReadKeyFromFile(constants.AUTHORIZATION_ENCRYPTION_FILENAME)
+		if err != nil {
+			return nil, err
+		}
+
+		result, err := keys.Decrypt(request.Code, encryptionKey)
+		if err != nil {
+			return nil, err
+		}
+		var authorizationData AuthorizationCode
+		if err = json.Unmarshal(result, &authorizationData); err != nil {
+			return nil, err
+		}
 		response := api.OAuth2TokenResponse{
 			AccessToken:  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
 			ExpiresIn:    300,
