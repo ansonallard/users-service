@@ -306,7 +306,6 @@ paths:
           $ref: "#/components/responses/OAuthErrorBadRequest"
         '401':
           $ref: "#/components/responses/OAuthErrorBadRequest"
-
   
   /oauth/authorize:
     get:
@@ -333,6 +332,16 @@ paths:
         '401':
           $ref: "#/components/responses/OAuthErrorBadRequest"
 
+  /.well-known/jwks.json:
+    get:
+      operationId: GetJwks
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: object
 
   /tenants:
     post:

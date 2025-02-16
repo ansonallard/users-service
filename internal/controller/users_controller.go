@@ -22,7 +22,7 @@ func NewUsersController(usersService *service.UsersService) UsersController {
 
 func (u *UsersController) CreateUser(ctx context.Context, g *gin.Context, pathParams api.PathParams) error {
 
-	var request api.CreateOrUpdateUserJSONRequestBody
+	var request api.CreateUserJSONRequestBody
 	err := g.BindJSON(&request)
 	if err != nil {
 		g.JSON(http.StatusBadRequest, fmt.Errorf("error: %+v", err))

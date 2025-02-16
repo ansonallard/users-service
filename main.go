@@ -3,6 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	b64 "encoding/base64"
+	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"log"
@@ -11,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/ansonallard/users-service/internal/constants"
 	"github.com/ansonallard/users-service/internal/controller"
@@ -22,6 +28,7 @@ import (
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -52,6 +59,8 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 
 func ValidationMiddleware(router routers.Router) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		c.Next()
+		return
 		route, pathParams, err := router.FindRoute(c.Request)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Error finding route: %v", err)})
@@ -159,6 +168,33 @@ func main() {
 			log.Panicf("Error writing key to file")
 		}
 	}
+
+	var publicKeyEncoded, privateKeyEncoded []byte
+	if _, err := os.Stat(constants.PRIVATE_KEY); err != nil {
+		privateKey, publicKey, err := keys.GenerateKeyPair(2048) // necessary for jwt signing
+		if err != nil {
+			log.Panicf("Error generating keys")
+		}
+		publicKeyEncoded, err = keys.EncodePublicKey(publicKey, constants.PUBLIC_KEY)
+		if err != nil {
+			log.Panicf("error encoding public key")
+		}
+		err = keys.EncodePrivateKey(privateKey, constants.PRIVATE_KEY)
+		if err != nil {
+			log.Panicf("error encoding private key")
+		}
+	} else {
+		publicKeyEncoded, err = os.ReadFile(constants.PUBLIC_KEY)
+		if err != nil {
+			log.Panicf("error encoding public key")
+		}
+		privateKeyEncoded, err = os.ReadFile(constants.PRIVATE_KEY)
+		if err != nil {
+			log.Panicf("error encoding private key")
+		}
+	}
+	fmt.Println(string(privateKeyEncoded))
+
 	// Load and parse OpenAPI spec
 	loader := openapi3.NewLoader()
 	openAPISpec, err := loader.LoadFromFile(OPENAPI_SPEC_FILE_PATH)
@@ -250,6 +286,69 @@ func main() {
 			operationErr = tenantsControllers.CreateTenant(ctx, c)
 		case "createUser":
 			operationErr = usersController.CreateUser(ctx, c, pathParams)
+		case "GetJwks":
+			kid := "1"
+			jwk := keys.JWKJson{
+				Keys: &[]keys.JWKKey{
+					{
+						Kid: kid,
+						Kty: "RSA",
+						Use: "sig",
+						Alg: "RS256",
+						X5c: []string{b64.StdEncoding.EncodeToString(publicKeyEncoded)},
+					},
+				},
+			}
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusOK, jwk)
+			token := jwt.NewWithClaims(
+				jwt.SigningMethodRS256,
+				jwt.StandardClaims{
+					Id:        "1234",
+					Issuer:    "authorization.ansonallard.com",
+					IssuedAt:  time.Now().Unix(),
+					ExpiresAt: time.Now().Add(time.Minute * 5).Unix(),
+				},
+			)
+			token.Header["kid"] = kid
+			privateKeyFileBytes, err := os.ReadFile(constants.PRIVATE_KEY)
+			var privateKey *rsa.PrivateKey
+			if err != nil {
+				// privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
+				// if err != nil {
+				// 	fmt.Printf("Cannot generate RSA Key\n")
+				// 	os.Exit(1)
+				// }
+				// if err = encodePrivateKey(privateKey, "private.pem"); err != nil {
+				// 	os.Exit(1)
+				// }
+			} else {
+				privateKeyPem, _ := pem.Decode(privateKeyFileBytes)
+				privateKey, _ = x509.ParsePKCS1PrivateKey(privateKeyPem.Bytes)
+			}
+			signedToken, err := token.SignedString(privateKey)
+
+			if err != nil {
+				fmt.Printf("%+v", err)
+				os.Exit(1)
+			}
+			fmt.Printf("jwt: %s\n", signedToken)
+
+			var jwks keys.JWKS
+			jwksJSON, _ := json.Marshal(jwk)
+			if err := json.Unmarshal([]byte(jwksJSON), &jwks); err != nil {
+				log.Fatalf("Failed to parse JWKS: %v", err)
+			}
+
+			validator := keys.NewJWTValidator(jwks)
+
+			// Validate a token
+			claims, err := validator.ValidateToken(signedToken)
+			if err != nil {
+				log.Fatalf("Token validation failed: %v", err)
+			}
+
+			fmt.Printf("Token is valid. claims: %s", claims.Raw)
 		default:
 			fmt.Println(route.Operation.OperationID)
 			c.JSON(http.StatusNoContent, myStruct{})

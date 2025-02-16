@@ -98,7 +98,6 @@ func (u *UsersService) Login(ctx context.Context, input LoginInput) (*LoginResul
 		return nil, errors.NotAuthorizedError{}
 	}
 
-	// encryptionKey, err := base64.StdEncoding.DecodeString(user.EncryptionKey)
 	encryptionKey, err := keys.ReadKeyFromFile(constants.AUTHORIZATION_ENCRYPTION_FILENAME)
 	if err != nil {
 		return nil, err
@@ -153,7 +152,7 @@ type UserModel struct {
 }
 
 type AuthorizationCode struct {
-	Username string    `json:"username""`
+	Username string    `json:"username"`
 	TenantId string    `json:"tenant_id"`
 	Iat      time.Time `json:"iat"`
 	Exp      time.Time `json:"exp"`
