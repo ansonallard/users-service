@@ -12,7 +12,7 @@ type TenantsController struct {
 	service service.TenantsService
 }
 
-func NewTenantsContorller(service service.TenantsService) TenantsController {
+func NewTenantsController(service service.TenantsService) TenantsController {
 	return TenantsController{service: service}
 }
 

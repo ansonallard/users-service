@@ -3,11 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/rsa"
-	"crypto/x509"
-	b64 "encoding/base64"
-	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"log"
@@ -16,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"time"
 
 	"github.com/ansonallard/users-service/internal/constants"
 	"github.com/ansonallard/users-service/internal/controller"
@@ -28,7 +22,6 @@ import (
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -218,17 +211,30 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	ginRouter := gin.New()
 	ginRouter.Use(gin.Recovery())
-
-	hostname := env.GetHostname()
 	ginRouter.Use(ValidationMiddleware(router))
-	cont := controller.NewOidcController(
+
+	// Service dependencies
+	hostname := env.GetHostname()
+
+	// Create services
+	tenantsService := service.NewTenantService(mongoClient)
+	usersService := service.NewUsersService(&tenantsService, mongoClient)
+	jwkService, err := service.NewJWKService(service.JWKServiceConfig{PublicKey: publicKeyEncoded})
+	if err != nil {
+		panic("could not create jwk service")
+	}
+
+	// Create controllers
+	tenantsControllers := controller.NewTenantsController(tenantsService)
+	oidcController := controller.NewOidcController(
 		service.NewOidcService(mongoClient),
 		hostname,
 	)
-	tenantsService := service.NewTenantService(mongoClient)
-	tenantsControllers := controller.NewTenantsContorller(tenantsService)
-	usersService := service.NewUsersService(&tenantsService, mongoClient)
 	usersController := controller.NewUsersController(&usersService)
+	jwkController, err := controller.NewJWKController(&controller.JWKConfig{Service: jwkService})
+	if err != nil {
+		panic("Could not create jwk controller")
+	}
 
 	// Get current working directory
 	_, filename, _, ok := runtime.Caller(0)
@@ -255,7 +261,7 @@ func main() {
 
 		switch route.Operation.OperationID {
 		case "OAuth2Authorize":
-			err := cont.OAuth2Authorize(c)
+			err := oidcController.OAuth2Authorize(c)
 			if err != nil {
 				c.AbortWithStatus(http.StatusInternalServerError)
 			}
@@ -265,7 +271,7 @@ func main() {
 			c.JSON(http.StatusOK, myStruct{})
 		case "OAuth2Token":
 			c.Header("Access-Control-Allow-Origin", "http://localhost:3000")
-			operationErr = cont.OAuth2Token(c)
+			operationErr = oidcController.OAuth2Token(c)
 		case "LoginPage":
 			redirectURI := c.Query("redirect_uri")
 			parsedURI, err := url.Parse(redirectURI)
@@ -287,68 +293,7 @@ func main() {
 		case "createUser":
 			operationErr = usersController.CreateUser(ctx, c, pathParams)
 		case "GetJwks":
-			kid := "1"
-			jwk := keys.JWKJson{
-				Keys: &[]keys.JWKKey{
-					{
-						Kid: kid,
-						Kty: "RSA",
-						Use: "sig",
-						Alg: "RS256",
-						X5c: []string{b64.StdEncoding.EncodeToString(publicKeyEncoded)},
-					},
-				},
-			}
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusOK, jwk)
-			token := jwt.NewWithClaims(
-				jwt.SigningMethodRS256,
-				jwt.StandardClaims{
-					Id:        "1234",
-					Issuer:    "authorization.ansonallard.com",
-					IssuedAt:  time.Now().Unix(),
-					ExpiresAt: time.Now().Add(time.Minute * 5).Unix(),
-				},
-			)
-			token.Header["kid"] = kid
-			privateKeyFileBytes, err := os.ReadFile(constants.PRIVATE_KEY)
-			var privateKey *rsa.PrivateKey
-			if err != nil {
-				// privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
-				// if err != nil {
-				// 	fmt.Printf("Cannot generate RSA Key\n")
-				// 	os.Exit(1)
-				// }
-				// if err = encodePrivateKey(privateKey, "private.pem"); err != nil {
-				// 	os.Exit(1)
-				// }
-			} else {
-				privateKeyPem, _ := pem.Decode(privateKeyFileBytes)
-				privateKey, _ = x509.ParsePKCS1PrivateKey(privateKeyPem.Bytes)
-			}
-			signedToken, err := token.SignedString(privateKey)
-
-			if err != nil {
-				fmt.Printf("%+v", err)
-				os.Exit(1)
-			}
-			fmt.Printf("jwt: %s\n", signedToken)
-
-			var jwks keys.JWKS
-			jwksJSON, _ := json.Marshal(jwk)
-			if err := json.Unmarshal([]byte(jwksJSON), &jwks); err != nil {
-				log.Fatalf("Failed to parse JWKS: %v", err)
-			}
-
-			validator := keys.NewJWTValidator(jwks)
-
-			// Validate a token
-			claims, err := validator.ValidateToken(signedToken)
-			if err != nil {
-				log.Fatalf("Token validation failed: %v", err)
-			}
-
-			fmt.Printf("Token is valid. claims: %s", claims.Raw)
+			operationErr = jwkController.GetJWKs(c)
 		default:
 			fmt.Println(route.Operation.OperationID)
 			c.JSON(http.StatusNoContent, myStruct{})

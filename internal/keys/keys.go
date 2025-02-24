@@ -9,18 +9,6 @@ import (
 	"os"
 )
 
-type JWKJson struct {
-	Keys *[]JWKKey `json:"keys"`
-}
-
-type JWKKey struct {
-	X5c []string `json:"x5c"`
-	Kty string   `json:"kty"`
-	Alg string   `json:"alg"`
-	Use string   `json:"use"`
-	Kid string   `json:"kid"`
-}
-
 func GenerateKeyPair(bits int) (*rsa.PrivateKey, *rsa.PublicKey, error) {
 	// Generate private key
 	privateKey, err := rsa.GenerateKey(rand.Reader, bits)
