@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"log"
@@ -162,7 +165,8 @@ func main() {
 		}
 	}
 
-	var publicKeyEncoded, privateKeyEncoded []byte
+	var publicKeyEncoded []byte
+	var privateKey *rsa.PrivateKey
 	if _, err := os.Stat(constants.PRIVATE_KEY); err != nil {
 		privateKey, publicKey, err := keys.GenerateKeyPair(2048) // necessary for jwt signing
 		if err != nil {
@@ -181,12 +185,16 @@ func main() {
 		if err != nil {
 			log.Panicf("error encoding public key")
 		}
-		privateKeyEncoded, err = os.ReadFile(constants.PRIVATE_KEY)
+		privateKeyFileBytes, err := os.ReadFile(constants.PRIVATE_KEY)
 		if err != nil {
-			log.Panicf("error encoding private key")
+			log.Panicf("error reading private key")
+		}
+		privateKeyPem, _ := pem.Decode(privateKeyFileBytes)
+		privateKey, err = x509.ParsePKCS1PrivateKey(privateKeyPem.Bytes)
+		if err != nil {
+			log.Panicf("error parsing private key")
 		}
 	}
-	fmt.Println(string(privateKeyEncoded))
 
 	// Load and parse OpenAPI spec
 	loader := openapi3.NewLoader()
@@ -223,11 +231,18 @@ func main() {
 	if err != nil {
 		panic("could not create jwk service")
 	}
+	odicService, err := service.NewOidcService(&service.OidcServiceConfig{
+		MongoClient: mongoClient,
+		PrivateKey:  privateKey,
+	})
+	if err != nil {
+		panic("could not create odic service")
+	}
 
 	// Create controllers
 	tenantsControllers := controller.NewTenantsController(tenantsService)
 	oidcController := controller.NewOidcController(
-		service.NewOidcService(mongoClient),
+		odicService,
 		hostname,
 	)
 	usersController := controller.NewUsersController(&usersService)

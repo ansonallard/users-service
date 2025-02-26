@@ -15,11 +15,11 @@ import (
 )
 
 type OidcController struct {
-	oidcService *service.OidcService
+	oidcService service.OidcService
 	hostname    string
 }
 
-func NewOidcController(oidcService *service.OidcService, hostname string) *OidcController {
+func NewOidcController(oidcService service.OidcService, hostname string) *OidcController {
 	return &OidcController{
 		oidcService: oidcService,
 		hostname:    hostname,
