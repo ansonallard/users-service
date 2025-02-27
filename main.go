@@ -25,6 +25,7 @@ import (
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -55,8 +56,6 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 
 func ValidationMiddleware(router routers.Router) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Next()
-		return
 		route, pathParams, err := router.FindRoute(c.Request)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Error finding route: %v", err)})
@@ -148,6 +147,10 @@ func configureDb(ctx context.Context, mongoClient *mongo.Client) {
 
 func main() {
 	ctx := context.Background()
+
+	if err := godotenv.Load(); err != nil {
+		panic("could not load .env file")
+	}
 
 	mongoClient, _ := mongo.Connect(options.Client().ApplyURI("mongodb://localhost:27017"))
 
